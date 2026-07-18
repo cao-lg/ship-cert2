@@ -96,6 +96,25 @@ export function recognizeDatesFromText(
     }
   }
 
+  // 额外：提取任何独立的日期（没有关键词前缀的情况）
+  const standaloneDatePattern = /(\d{4}-\d{1,2}-\d{1,2})/g;
+  let standaloneMatch;
+  while ((standaloneMatch = standaloneDatePattern.exec(fullText)) !== null) {
+    const dateStr = parseDateFromMatch(standaloneMatch);
+    if (!dateStr) continue;
+    
+    const position = findDatePosition(textItems, standaloneMatch[0]);
+    
+    dates.push({
+      type: 'EXPIRY' as DateType,
+      date: dateStr,
+      confidence: 0.5,
+      page: position?.page ?? 1,
+      position: position?.position ?? { x: 0, y: 0, width: 100, height: 15 },
+      rawText: standaloneMatch[0],
+    });
+  }
+
   return deduplicateDates(dates);
 }
 

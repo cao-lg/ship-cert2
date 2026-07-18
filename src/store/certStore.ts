@@ -121,33 +121,46 @@ export const useCertStore = create<CertStore>((set, get) => ({
 }));
 
 // 根据文件名和文本内容自动识别证书类型
+// 优化：按优先级排序，更具体的证书类型优先检测
 export function detectCertType(fileName: string, textContent: string): CertType {
   const combinedText = (fileName + ' ' + textContent).toLowerCase();
 
-  for (const [type, info] of Object.entries(CERT_TYPE_INFO)) {
-    if (type === 'UNKNOWN') continue;
+  const priorityOrder: CertType[] = [
+    'ISSC',
+    'COF',
+    'SMC',
+    'CLC',
+    'DOC',
+    'SE',
+    'SR',
+    'SC',
+    'IOPP',
+    'TON',
+    'LL',
+    'MM',
+    'REG',
+  ];
+
+  for (const type of priorityOrder) {
+    const info = CERT_TYPE_INFO[type];
     for (const keyword of info.keywords) {
       if (combinedText.includes(keyword.toLowerCase())) {
-        return type as CertType;
+        return type;
       }
     }
   }
+
   return 'UNKNOWN';
 }
 
 // 识别证书编号
 export function detectCertNumber(textContent: string): string {
-  // 常见证书编号模式
   const patterns = [
     /(?:Certificate\s+(?:No|Number)|Cert\.?\s*No|No\.?)\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-_\/]{4,40})/i,
     /(?:Official\s+Number|OFFICIAL\s+NO)\s*[:\-]?\s*([A-Z0-9][A-Z0-9\-_\/]{4,40})/i,
-    // 巴哈马格式
     /(BMA-[A-Z]{2,5}-\d{4,6}-\d{2})/i,
-    // 中国船级社格式
     /(JS\d{2}[A-Z]{3}\d{5,7}(?:_\d+)?)/i,
-    // DNV格式
     /(nN\d{6,8}-[a-z]{2,5})/i,
-    // 简单的数字编号
     /(?:No\.?|Number)\s*[:\-]?\s*(\d{5,15})/i,
   ];
 
@@ -168,14 +181,12 @@ export function detectSubCertificates(
 ): SubCertificate[] {
   const subs: SubCertificate[] = [];
 
-  // 按页分组文本
   const pagesText: Record<number, string> = {};
   for (const item of textItems) {
     if (!pagesText[item.page]) pagesText[item.page] = '';
     pagesText[item.page] += item.text + ' ';
   }
 
-  // 遍历每页，查找证书标题
   const certStarts: { page: number; type: CertType }[] = [];
 
   for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
@@ -186,7 +197,6 @@ export function detectSubCertificates(
       for (const pattern of info.titlePatterns) {
         const regex = new RegExp(pattern.replace(/\s+/g, '\\s+'), 'i');
         if (regex.test(pageText)) {
-          // 避免重复添加同一页
           if (!certStarts.some((cs) => cs.page === pageNum && cs.type === type)) {
             certStarts.push({ page: pageNum, type: type as CertType });
           }
@@ -196,12 +206,10 @@ export function detectSubCertificates(
     }
   }
 
-  // 按页码排序
   certStarts.sort((a, b) => a.page - b.page);
 
   if (certStarts.length === 0) return [];
 
-  // 生成子证书范围
   for (let i = 0; i < certStarts.length; i++) {
     const start = certStarts[i].page - 1;
     const end = i + 1 < certStarts.length ? certStarts[i + 1].page - 2 : pageCount - 1;

@@ -1,5 +1,6 @@
 // 证书类型枚举
-export type CertType = 'REG' | 'MM' | 'LL' | 'SC' | 'ISSC' | 'IOPP' | 'TON' | 'UNKNOWN';
+export type CertType = 'REG' | 'MM' | 'LL' | 'SC' | 'ISSC' | 'IOPP' | 'TON' |
+  'SMC' | 'CLC' | 'DOC' | 'COF' | 'SE' | 'SR' | 'UNKNOWN';
 
 // 日期类型枚举
 export type DateType = 'ISSUE' | 'EXPIRY' | 'ANNUAL_SURVEY';
@@ -52,7 +53,10 @@ export interface SubCertificate {
 }
 
 // 证书合并排序
-export const CERT_MERGE_ORDER: CertType[] = ['REG', 'MM', 'LL', 'SC', 'ISSC', 'IOPP', 'TON'];
+export const CERT_MERGE_ORDER: CertType[] = [
+  'REG', 'MM', 'LL', 'SC', 'ISSC', 'IOPP', 'TON',
+  'SMC', 'CLC', 'DOC', 'COF', 'SE', 'SR'
+];
 
 // 证书类型信息映射 - 包含中文代码（参考Excel模板）
 export const CERT_TYPE_INFO: Record<CertType, {
@@ -76,26 +80,33 @@ export const CERT_TYPE_INFO: Record<CertType, {
     keywords: ['Minimum Safe Manning', 'Safe Manning', 'Minimum Manning'],
     titlePatterns: ['Minimum Safe Manning', 'Safe Manning Document'],
   },
+  SMC: {
+    label: '安全管理证书',
+    labelEn: 'Safety Management Certificate',
+    code: '1104',
+    keywords: ['Safety Management Certificate', 'SMC', 'International Safety Management', 'ISM Code'],
+    titlePatterns: ['Safety Management Certificate', 'SMC'],
+  },
+  CLC: {
+    label: '油污损害民事责任保险或其他财务保证证书',
+    labelEn: 'Civil Liability Convention Certificate',
+    code: '1105',
+    keywords: ['Civil Liability', 'CLC', 'Insurance Certificate', 'Financial Security'],
+    titlePatterns: ['Civil Liability Convention', 'Insurance Certificate'],
+  },
+  TON: {
+    label: '海上船舶吨位证书',
+    labelEn: 'International Tonnage Certificate',
+    code: '1201',
+    keywords: ['International Tonnage', 'TON', 'Tonnage Certificate', 'International Tonnage Certificate 1969'],
+    titlePatterns: ['International Tonnage', 'Tonnage Certificate'],
+  },
   LL: {
     label: '海上船舶载重线证书',
     labelEn: 'International Load Line',
     code: '1202',
     keywords: ['Load Line', 'International Load Line Certificate', 'Load Line Certificate'],
     titlePatterns: ['International Load Line', 'Load Line Certificate'],
-  },
-  SC: {
-    label: '货船构造安全证书',
-    labelEn: 'Cargo Ship Safety Construction',
-    code: '2205',
-    keywords: ['Safety Construction', 'Cargo Ship Safety Construction', 'SC'],
-    titlePatterns: ['Cargo Ship Safety Construction', 'Safety Construction Certificate'],
-  },
-  ISSC: {
-    label: '国际船舶保安证书',
-    labelEn: 'International Ship Security Certificate',
-    code: '2222',
-    keywords: ['International Ship Security', 'ISSC', 'Ship Security Certificate', 'Continuous Synopsis Record'],
-    titlePatterns: ['International Ship Security', 'ISSC'],
   },
   IOPP: {
     label: '海上船舶防止油污证书',
@@ -104,12 +115,47 @@ export const CERT_TYPE_INFO: Record<CertType, {
     keywords: ['International Oil Pollution Prevention', 'IOPP', 'IOPP FORM A', 'Form A', 'Oil Pollution Prevention'],
     titlePatterns: ['International Oil Pollution Prevention', 'IOPP Certificate', 'Form A'],
   },
-  TON: {
-    label: '海上船舶吨位证书',
-    labelEn: 'International Tonnage Certificate',
-    code: '1201',
-    keywords: ['International Tonnage', 'TON', 'Tonnage Certificate', 'International Tonnage Certificate 1969'],
-    titlePatterns: ['International Tonnage', 'Tonnage Certificate'],
+  COF: {
+    label: '海上船舶散装运输危险化学品适装证书',
+    labelEn: 'Certificate of Fitness for Carriage of Dangerous Chemicals',
+    code: '1209',
+    keywords: ['Certificate of Fitness', 'COF', 'Dangerous Chemicals', 'Liquefied Gases', 'Carriage of Bulk'],
+    titlePatterns: ['Certificate of Fitness', 'COF'],
+  },
+  DOC: {
+    label: '符合证明副本',
+    labelEn: 'Document of Compliance',
+    code: '2103',
+    keywords: ['Document of Compliance', 'Company Certificate'],
+    titlePatterns: ['Document of Compliance'],
+  },
+  SC: {
+    label: '货船构造安全证书',
+    labelEn: 'Cargo Ship Safety Construction',
+    code: '2205',
+    keywords: ['Safety Construction', 'Cargo Ship Safety Construction', 'SC'],
+    titlePatterns: ['Cargo Ship Safety Construction', 'Safety Construction Certificate'],
+  },
+  SE: {
+    label: '货船设备安全证书',
+    labelEn: 'Cargo Ship Safety Equipment',
+    code: '2206',
+    keywords: ['Safety Equipment', 'Cargo Ship Safety Equipment', 'Equipment Certificate'],
+    titlePatterns: ['Cargo Ship Safety Equipment', 'Safety Equipment Certificate'],
+  },
+  SR: {
+    label: '货船无线电安全证书',
+    labelEn: 'Cargo Ship Safety Radio',
+    code: '2207',
+    keywords: ['Safety Radio', 'Cargo Ship Safety Radio', 'GMDSS', 'Radio Certificate'],
+    titlePatterns: ['Cargo Ship Safety Radio', 'Safety Radio Certificate'],
+  },
+  ISSC: {
+    label: '国际船舶保安证书',
+    labelEn: 'International Ship Security Certificate',
+    code: '2222',
+    keywords: ['International Ship Security', 'ISSC', 'Ship Security Certificate', 'Continuous Synopsis Record'],
+    titlePatterns: ['International Ship Security', 'ISSC'],
   },
   UNKNOWN: {
     label: '未知类型',
@@ -122,7 +168,7 @@ export const CERT_TYPE_INFO: Record<CertType, {
 
 // 日期类型信息映射
 export const DATE_TYPE_INFO: Record<DateType, { label: string; labelEn: string; keywords: string[] }> = {
-  ISSUE: { label: '签发日期', labelEn: 'Date of Issue', keywords: ['Date of Issue', 'Issued at', 'Issued on', 'Date of Certificate', 'Issue Date'] },
-  EXPIRY: { label: '有效日期', labelEn: 'Date of Expiry', keywords: ['Date of Expiry', 'Expiry', 'Valid Until', 'Valid To', 'Expiration', 'Expiring', 'this Certificate is valid until'] },
-  ANNUAL_SURVEY: { label: '年检日期', labelEn: 'Annual Survey', keywords: ['Annual Survey', 'Intermediate Survey', 'Annual inspection'] },
+  ISSUE: { label: '签发日期', labelEn: 'Date of Issue', keywords: ['Date of Issue', 'Issued at', 'Issued on', 'Date of Certificate', 'Issue Date', 'Issued', 'Issue', 'Issued Date'] },
+  EXPIRY: { label: '有效日期', labelEn: 'Date of Expiry', keywords: ['Date of Expiry', 'Expiry', 'Valid Until', 'Valid To', 'Expiration', 'Expiring', 'this Certificate is valid until', 'Expiry Date', 'Expires'] },
+  ANNUAL_SURVEY: { label: '年检日期', labelEn: 'Annual Survey', keywords: ['Annual Survey', 'Intermediate Survey', 'Annual inspection', 'Annual Date'] },
 };
