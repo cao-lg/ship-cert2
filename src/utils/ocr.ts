@@ -54,21 +54,46 @@ export async function ocrPdfPage(
   await page.render({ canvasContext: ctx, viewport }).promise;
 
   const worker = await getOcrWorker();
-  const result = await worker.recognize(canvas);
+  const result = await worker.recognize(canvas, {}, { blocks: true });
 
   const ocrData = result.data as unknown as {
     text: string;
-    words?: Array<{
-      text: string;
-      confidence: number;
-      bbox: { x0: number; y0: number; x1: number; y1: number };
+    blocks?: Array<{
+      paragraphs?: Array<{
+        lines?: Array<{
+          words?: Array<{
+            text: string;
+            confidence: number;
+            bbox: { x0: number; y0: number; x1: number; y1: number };
+          }>;
+        }>;
+      }>;
     }>;
   };
 
   const words: OcrWord[] = [];
 
-  if (ocrData.words && ocrData.words.length > 0) {
-    for (const w of ocrData.words) {
+  const rawWords: Array<{ text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number } }> = [];
+  if (ocrData.blocks && ocrData.blocks.length > 0) {
+    for (const block of ocrData.blocks) {
+      if (block.paragraphs) {
+        for (const para of block.paragraphs) {
+          if (para.lines) {
+            for (const line of para.lines) {
+              if (line.words) {
+                for (const w of line.words) {
+                  rawWords.push(w);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (rawWords.length > 0) {
+    for (const w of rawWords) {
       // OCR bbox 是 Canvas 像素坐标（设备空间，左上角原点）
       // 1. 除以 scale 得到 PDF 设备坐标
       // 2. 用 deviceToUser 转换为用户空间（PDF坐标，左下角原点）

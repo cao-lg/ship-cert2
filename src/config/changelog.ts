@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-18 17:00:00 北京时间';
+export const BUILD_TIMESTAMP = '2026-07-18 20:05:00 北京时间';
 
 export interface ChangelogEntry {
   version: string;
@@ -10,6 +10,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v2.4.0',
+    date: '2026-07-18',
+    changes: [
+      '修复Tesseract.js v6 OCR无法获取words坐标的问题',
+      '原因：Tesseract.js v6默认仅返回text，需显式启用blocks输出',
+      '修改：worker.recognize() 添加第三个参数 { blocks: true }',
+      '适配：从blocks→paragraphs→lines→words层级提取词坐标',
+      '彻底解决图片型PDF识别出日期但画不出框的问题',
+    ],
+  },
   {
     version: 'v2.3.0',
     date: '2026-07-18',
