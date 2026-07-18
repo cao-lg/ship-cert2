@@ -84,17 +84,17 @@ export function recognizeDatesFromText(
         const dateStr = parseDateFromMatch(match);
         if (!dateStr) continue;
 
-        // 在textItems中查找该日期的坐标位置
         const position = findDatePosition(textItems, match[0]);
-
-        dates.push({
-          type: dateType as DateType,
-          date: dateStr,
-          confidence: 0.85,
-          page: position?.page ?? 1,
-          position: position?.position ?? { x: 0, y: 0, width: 100, height: 15 },
-          rawText: match[0],
-        });
+        if (position) {
+          dates.push({
+            type: dateType as DateType,
+            date: dateStr,
+            confidence: 0.85,
+            page: position.page,
+            position: position.position,
+            rawText: match[0],
+          });
+        }
       }
     }
   }
@@ -146,14 +146,16 @@ export function recognizeDatesFromOcr(
           if (!dateStr) continue;
 
           const position = findOcrDatePosition(ocrResult, match[0]);
-          dates.push({
-            type: dateType as DateType,
-            date: dateStr,
-            confidence: position ? 0.7 : 0.5,
-            page: pageNum,
-            position: position || { x: 0, y: 0, width: 100, height: 20 },
-            rawText: match[0],
-          });
+          if (position) {
+            dates.push({
+              type: dateType as DateType,
+              date: dateStr,
+              confidence: 0.7,
+              page: pageNum,
+              position,
+              rawText: match[0],
+            });
+          }
         }
       }
     }
@@ -330,6 +332,7 @@ function findDatePosition(
 }
 
 // 在OCR结果中查找日期位置
+// 策略：以年份word为锚点，向左右扩展找月份和日期
 function findOcrDatePosition(
   ocrResult: OcrResult,
   matchedText: string
@@ -345,6 +348,7 @@ function findOcrDatePosition(
   let month = '';
   let year = '';
   let isNumericMonth = false;
+  let monthBeforeDay = false; // 月份在前还是日期在前
 
   const m1 = normalized.match(datePattern);
   if (m1) {
@@ -371,6 +375,7 @@ function findOcrDatePosition(
           month = m4[1].toLowerCase();
           day = m4[2];
           year = m4[3];
+          monthBeforeDay = true;
         }
       }
     }
@@ -378,107 +383,110 @@ function findOcrDatePosition(
 
   if (!year) return null;
 
-  const yearWords = ocrResult.words.filter((w) => w.text.trim() === year || w.text.trim().startsWith(year) || w.text.trim().endsWith(year));
-  if (yearWords.length === 0) return null;
+  // 清理word文本的辅助函数
+  const cleanWord = (s: string) => s.replace(/[\(\)\.,;:]/g, '').trim().toLowerCase();
 
-  const monthWordNames = [
+  // 找所有可能包含年份的word
+  const yearCandidates = ocrResult.words.filter((w) => {
+    const clean = cleanWord(w.text);
+    return clean === year || clean.includes(year);
+  });
+
+  if (yearCandidates.length === 0) return null;
+
+  // 月份名称列表
+  const monthFullNames = [
     'january', 'february', 'march', 'april', 'may', 'june',
     'july', 'august', 'september', 'october', 'november', 'december',
+  ];
+  const monthAbbrNames = [
     'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
   ];
 
-  let bestMatch: typeof ocrResult.words[0] | null = null;
-  let bestScore = -1;
-
-  for (const yearWord of yearWords) {
-    const yearCenterY = (yearWord.bbox.y0 + yearWord.bbox.y1) / 2;
-    const lineHeight = yearWord.bbox.y1 - yearWord.bbox.y0;
-    const threshold = Math.max(lineHeight * 1.5, 15); // 用户空间坐标（PDF点），阈值小
+  // 检查一个word是否是月份
+  const isMonthWord = (wordText: string): boolean => {
+    const clean = cleanWord(wordText);
+    if (!month) return false;
     
-    const sameLine = ocrResult.words.filter((w) => {
-      const wCenterY = (w.bbox.y0 + w.bbox.y1) / 2;
-      return Math.abs(wCenterY - yearCenterY) < threshold;
-    });
-    sameLine.sort((a, b) => a.bbox.x0 - b.bbox.x0);
-
-    let score = 0;
-    let hasMonthWord = false;
-    let hasDay = false;
-
-    for (const w of sameLine) {
-      const wordText = w.text.toLowerCase().trim();
-      
-      if (!isNumericMonth && month) {
-        const fullMonth = month.length >= 3 ? month : monthWordNames.find((m) => m.startsWith(month));
-        if (fullMonth && (wordText === fullMonth || wordText.startsWith(fullMonth.substring(0, 3)))) {
-          hasMonthWord = true;
-        }
-      }
-      
-      if (isNumericMonth && month) {
-        if (wordText === month || wordText === month.padStart(2, '0')) {
-          hasMonthWord = true;
-        }
-      }
-      
-      if (day && (wordText === day || wordText === day.padStart(2, '0'))) {
-        hasDay = true;
-      }
+    if (isNumericMonth) {
+      return clean === month || clean === month.padStart(2, '0');
+    } else {
+      const monthLower = month.toLowerCase();
+      if (monthLower === clean) return true;
+      if (monthFullNames.some(m => m.startsWith(monthLower) && clean.startsWith(monthLower.substring(0, 3)))) return true;
+      if (monthAbbrNames.some(m => m === monthLower.substring(0, 3) && clean.startsWith(m))) return true;
+      return false;
     }
-
-    if (hasMonthWord) score += 3;
-    if (hasDay) score += 2;
-    score += 1;
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestMatch = yearWord;
-    }
-  }
-
-  if (!bestMatch || bestScore <= 1) return null;
-
-  const bestCenterY = (bestMatch.bbox.y0 + bestMatch.bbox.y1) / 2;
-  const bestLineHeight = bestMatch.bbox.y1 - bestMatch.bbox.y0;
-  const bestThreshold = Math.max(bestLineHeight * 1.5, 15);
-  const sameLine = ocrResult.words.filter((w) => {
-    const wCenterY = (w.bbox.y0 + w.bbox.y1) / 2;
-    return Math.abs(wCenterY - bestCenterY) < bestThreshold;
-  });
-  sameLine.sort((a, b) => a.bbox.x0 - b.bbox.x0);
-
-  const dateWords: typeof ocrResult.words = [];
-  for (const w of sameLine) {
-    const wordText = w.text.toLowerCase().trim();
-    const cleanText = wordText.replace(/[\(\)\.,]/g, '');
-    
-    if (cleanText === year || cleanText.startsWith(year) || cleanText.endsWith(year)) {
-      dateWords.push(w);
-    } else if (!isNumericMonth && month) {
-      const fullMonth = month.length >= 3 ? month : monthWordNames.find((m) => m.startsWith(month));
-      if (fullMonth && (cleanText === fullMonth || cleanText.startsWith(fullMonth.substring(0, 3)))) {
-        dateWords.push(w);
-      }
-    } else if (isNumericMonth && month && (cleanText === month || cleanText === month.padStart(2, '0'))) {
-      dateWords.push(w);
-    } else if (day && (cleanText === day || cleanText === day.padStart(2, '0'))) {
-      dateWords.push(w);
-    }
-  }
-
-  if (dateWords.length < 2) return null;
-
-  const xs = dateWords.map((w) => w.bbox.x0);
-  const xEnds = dateWords.map((w) => w.bbox.x1);
-  const ys = dateWords.map((w) => w.bbox.y0);
-  const yEnds = dateWords.map((w) => w.bbox.y1);
-
-  return {
-    x: Math.min(...xs) - 3,
-    y: Math.min(...ys) - 3,
-    width: Math.max(...xEnds) - Math.min(...xs) + 6,
-    height: Math.max(...yEnds) - Math.min(...ys) + 6,
   };
+
+  // 检查一个word是否是日期数字
+  const isDayWord = (wordText: string): boolean => {
+    if (!day) return false;
+    const clean = cleanWord(wordText);
+    return clean === day || clean === day.padStart(2, '0');
+  };
+
+  let bestResult = null;
+  let bestScore = 0;
+
+  for (const yearWord of yearCandidates) {
+    const yearCenterY = (yearWord.bbox.y0 + yearWord.bbox.y1) / 2;
+    const yearHeight = yearWord.bbox.y1 - yearWord.bbox.y0;
+    const yThreshold = Math.max(yearHeight * 2, 20);
+    const xThreshold = Math.max(yearHeight * 8, 100); // 左右扩展范围
+
+    // 在年份word附近（同一行附近）找其他word
+    const nearbyWords = ocrResult.words.filter((w) => {
+      const wCenterY = (w.bbox.y0 + w.bbox.y1) / 2;
+      const wCenterX = (w.bbox.x0 + w.bbox.x1) / 2;
+      const yearCenterX = (yearWord.bbox.x0 + yearWord.bbox.x1) / 2;
+      return Math.abs(wCenterY - yearCenterY) < yThreshold &&
+             Math.abs(wCenterX - yearCenterX) < xThreshold;
+    });
+
+    nearbyWords.sort((a, b) => a.bbox.x0 - b.bbox.x0);
+
+    let hasMonth = false;
+    let hasDay = false;
+    const dateComponentWords = [yearWord];
+
+    for (const w of nearbyWords) {
+      if (w === yearWord) continue;
+      if (isMonthWord(w.text)) {
+        hasMonth = true;
+        dateComponentWords.push(w);
+      }
+      if (isDayWord(w.text)) {
+        hasDay = true;
+        dateComponentWords.push(w);
+      }
+    }
+
+    // 评分
+    let score = 1; // 年份
+    if (hasMonth) score += 3;
+    if (hasDay) score += 2;
+
+    if (score > bestScore && score >= 3) {
+      bestScore = score;
+      
+      // 计算包围盒
+      const xs = dateComponentWords.map(w => w.bbox.x0);
+      const xEnds = dateComponentWords.map(w => w.bbox.x1);
+      const ys = dateComponentWords.map(w => w.bbox.y0);
+      const yEnds = dateComponentWords.map(w => w.bbox.y1);
+      
+      const pad = 4;
+      bestResult = {
+        x: Math.min(...xs) - pad,
+        y: Math.min(...ys) - pad,
+        width: Math.max(...xEnds) - Math.min(...xs) + pad * 2,
+        height: Math.max(...yEnds) - Math.min(...ys) + pad * 2,
+      };
+    }
+  }
+
+  return bestResult;
 }
 
 // 去重
