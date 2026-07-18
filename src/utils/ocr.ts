@@ -1,5 +1,6 @@
 import { createWorker, Worker } from 'tesseract.js';
 import { renderPageToCanvas } from './pdfParser';
+import * as pdfjsLib from 'pdfjs-dist';
 
 let ocrWorker: Worker | null = null;
 
@@ -28,8 +29,19 @@ export async function ocrPdfPage(
   scale: number = 3.0
 ): Promise<OcrResult> {
   const canvas = document.createElement('canvas');
-  await renderPageToCanvas(pdfData, pageNum, canvas, scale);
-  const pageHeight = canvas.height / scale;
+  
+  const buffer = new Uint8Array(pdfData).slice().buffer;
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  const page = await pdf.getPage(pageNum);
+  const viewport = page.getViewport({ scale });
+  
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  
+  const ctx = canvas.getContext('2d')!;
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  
+  const pageHeight = viewport.height / scale;
 
   const worker = await getOcrWorker();
   const result = await worker.recognize(canvas);
@@ -53,37 +65,38 @@ export async function ocrPdfPage(
 
   if (ocrData.lines && ocrData.lines.length > 0) {
     for (const line of ocrData.lines) {
-      const lineY0 = line.bbox.y0 / scale;
-      const lineY1 = line.bbox.y1 / scale;
-      const lineBottom = pageHeight - lineY1;
-      const lineTop = pageHeight - lineY0;
-
       if (line.words && line.words.length > 0) {
         for (const w of line.words) {
           const x0 = w.bbox.x0 / scale;
           const x1 = w.bbox.x1 / scale;
+          const y0 = w.bbox.y0 / scale;
+          const y1 = w.bbox.y1 / scale;
+          
           words.push({
             text: w.text,
             confidence: w.confidence ? w.confidence / 100 : (line.confidence || 0) / 100,
             bbox: {
               x0,
-              y0: lineBottom,
+              y0: pageHeight - y1,
               x1,
-              y1: lineTop,
+              y1: pageHeight - y0,
             },
           });
         }
       } else {
         const x0 = line.bbox.x0 / scale;
         const x1 = line.bbox.x1 / scale;
+        const y0 = line.bbox.y0 / scale;
+        const y1 = line.bbox.y1 / scale;
+        
         words.push({
           text: line.text,
           confidence: (line.confidence || 0) / 100,
           bbox: {
             x0,
-            y0: lineBottom,
+            y0: pageHeight - y1,
             x1,
-            y1: lineTop,
+            y1: pageHeight - y0,
           },
         });
       }

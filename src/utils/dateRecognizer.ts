@@ -336,137 +336,124 @@ function findOcrDatePosition(
 ): { x: number; y: number; width: number; height: number } | null {
   const normalized = matchedText.toLowerCase().trim();
 
-  // 策略1：直接匹配word文本（最可靠）
-  // 从matchedText中提取日期部分
-  const dateMatch = normalized.match(/(\d{1,2}\s+\w{3,9}[\.,]?\s+\d{2,4}|\d{1,2}[\/\.\-]\d{1,2}[\/\.\-]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|\w{3,9}\s+\d{1,2},?\s+\d{4})/);
-  
-  if (dateMatch) {
-    const dateStr = dateMatch[0].toLowerCase().trim();
-    
-    // 尝试完整匹配单个word
-    for (const w of ocrResult.words) {
+  const datePattern = /(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[\.,]?\s+(\d{4})/i;
+  const datePattern2 = /(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{4})/;
+  const datePattern3 = /(\d{4})-(\d{1,2})-(\d{1,2})/;
+  const datePattern4 = /(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s+(\d{4})/i;
+
+  let day = '';
+  let month = '';
+  let year = '';
+
+  const m1 = normalized.match(datePattern);
+  if (m1) {
+    day = m1[1];
+    month = m1[2].toLowerCase();
+    year = m1[3];
+  } else {
+    const m2 = normalized.match(datePattern2);
+    if (m2) {
+      day = m2[1];
+      month = m2[2];
+      year = m2[3];
+    } else {
+      const m3 = normalized.match(datePattern3);
+      if (m3) {
+        year = m3[1];
+        month = m3[2];
+        day = m3[3];
+      } else {
+        const m4 = normalized.match(datePattern4);
+        if (m4) {
+          month = m4[1].toLowerCase();
+          day = m4[2];
+          year = m4[3];
+        }
+      }
+    }
+  }
+
+  if (!year) return null;
+
+  const yearWords = ocrResult.words.filter((w) => w.text.includes(year));
+  if (yearWords.length === 0) return null;
+
+  const monthKeywords = [
+    'january', 'february', 'march', 'april', 'may', 'june',
+    'july', 'august', 'september', 'october', 'november', 'december',
+    'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+    '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12',
+  ];
+
+  let bestMatch: typeof ocrResult.words[0] | null = null;
+  let bestScore = 0;
+
+  for (const yearWord of yearWords) {
+    const sameLine = ocrResult.words.filter(
+      (w) => Math.abs(w.bbox.y0 - yearWord.bbox.y0) < 30 && Math.abs(w.bbox.y1 - yearWord.bbox.y1) < 30
+    );
+    sameLine.sort((a, b) => a.bbox.x0 - b.bbox.x0);
+
+    let score = 1;
+
+    for (const w of sameLine) {
       const wordText = w.text.toLowerCase().trim();
-      if (wordText === dateStr || wordText.includes(dateStr)) {
-        return {
-          x: w.bbox.x0 - 2,
-          y: w.bbox.y0 - 2,
-          width: w.bbox.x1 - w.bbox.x0 + 4,
-          height: w.bbox.y1 - w.bbox.y0 + 4,
-        };
-      }
-    }
-    
-    // 尝试部分匹配：日期被拆分成多个words
-    const dateParts = dateStr.split(/[\s,\/\-\.]+/).filter((p) => p.length > 0);
-    if (dateParts.length >= 2) {
-      // 找包含年份的word作为锚点
-      const yearMatch = dateParts.find((p) => /^(20|19)\d{2}$/.test(p));
-      if (yearMatch) {
-        const yearWords = ocrResult.words.filter((w) => w.text.includes(yearMatch));
-        for (const yearWord of yearWords) {
-          // 找同一行的word
-          const sameLine = ocrResult.words.filter(
-            (w) => Math.abs(w.bbox.y0 - yearWord.bbox.y0) < 25 || Math.abs(w.bbox.y1 - yearWord.bbox.y1) < 25
-          );
-          sameLine.sort((a, b) => a.bbox.x0 - b.bbox.x0);
-          
-          // 检查这一行是否包含足够的日期部分
-          const lineText = sameLine.map((w) => w.text.toLowerCase()).join(' ');
-          let matchCount = 0;
-          for (const part of dateParts) {
-            if (lineText.includes(part)) matchCount++;
-          }
-          
-          if (matchCount >= Math.min(dateParts.length, 2)) {
-            // 找到日期所在行，计算整体bbox
-            const dateWords: typeof ocrResult.words = [];
-            for (const w of sameLine) {
-              const wordText = w.text.toLowerCase();
-              for (const part of dateParts) {
-                if (wordText.includes(part) || part.includes(wordText)) {
-                  if (!dateWords.includes(w)) {
-                    dateWords.push(w);
-                  }
-                  break;
-                }
-              }
-            }
-            
-            if (dateWords.length > 0) {
-              const xs = dateWords.map((w) => w.bbox.x0);
-              const xEnds = dateWords.map((w) => w.bbox.x1);
-              const ys = dateWords.map((w) => w.bbox.y0);
-              const yEnds = dateWords.map((w) => w.bbox.y1);
-              return {
-                x: Math.min(...xs) - 2,
-                y: Math.min(...ys) - 2,
-                width: Math.max(...xEnds) - Math.min(...xs) + 4,
-                height: Math.max(...yEnds) - Math.min(...ys) + 4,
-              };
-            }
-          }
-        }
-      }
-    }
-  }
-
-  // 策略2：基于年份查找
-  const yearMatch2 = normalized.match(/(20\d{2}|19\d{2})/);
-  if (yearMatch2) {
-    const targetYear = yearMatch2[1];
-    const yearWords = ocrResult.words.filter((w) => w.text.includes(targetYear));
-    if (yearWords.length > 0) {
-      yearWords.sort((a, b) => b.bbox.y0 - a.bbox.y0);
       
-      const months = [
-        'january', 'february', 'march', 'april', 'may', 'june',
-        'july', 'august', 'september', 'october', 'november', 'december',
-        'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
-      ];
-
-      for (const yearWord of yearWords) {
-        const sameLine = ocrResult.words.filter(
-          (w) => Math.abs(w.bbox.y0 - yearWord.bbox.y0) < 25 || Math.abs(w.bbox.y1 - yearWord.bbox.y1) < 25
-        );
-        sameLine.sort((a, b) => a.bbox.x0 - b.bbox.x0);
-
-        const lineText = sameLine.map((w) => w.text).join(' ').toLowerCase();
-        const hasMonth = months.some((m) => lineText.includes(m));
-        const hasDay = sameLine.some((w) => /^\d{1,2}$/.test(w.text.trim()));
-
-        if (hasMonth || (hasDay && sameLine.length >= 2)) {
-          const idx = sameLine.indexOf(yearWord);
-          const startIdx = Math.max(0, idx - 3);
-          const endIdx = Math.min(sameLine.length - 1, idx + 1);
-          const dateWords = sameLine.slice(startIdx, endIdx + 1);
-
-          if (dateWords.length > 0) {
-            const xs = dateWords.map((w) => w.bbox.x0);
-            const xEnds = dateWords.map((w) => w.bbox.x1);
-            const ys = dateWords.map((w) => w.bbox.y0);
-            const yEnds = dateWords.map((w) => w.bbox.y1);
-            return {
-              x: Math.min(...xs) - 2,
-              y: Math.min(...ys) - 2,
-              width: Math.max(...xEnds) - Math.min(...xs) + 4,
-              height: Math.max(...yEnds) - Math.min(...ys) + 4,
-            };
-          }
-        }
+      if (month && monthKeywords.some((mk) => wordText.includes(mk) || mk.includes(wordText))) {
+        score += 2;
       }
+      
+      if (day && wordText === day) {
+        score += 2;
+      }
+    }
 
-      // 回退：只取年份word的位置，向左右扩展
-      const topYearWord = yearWords[0];
-      return {
-        x: topYearWord.bbox.x0 - 80,
-        y: topYearWord.bbox.y0 - 2,
-        width: topYearWord.bbox.x1 - topYearWord.bbox.x0 + 160,
-        height: topYearWord.bbox.y1 - topYearWord.bbox.y0 + 4,
-      };
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = yearWord;
     }
   }
 
-  return null;
+  if (!bestMatch) return null;
+
+  const sameLine = ocrResult.words.filter(
+    (w) => Math.abs(w.bbox.y0 - bestMatch.bbox.y0) < 30 && Math.abs(w.bbox.y1 - bestMatch.bbox.y1) < 30
+  );
+  sameLine.sort((a, b) => a.bbox.x0 - b.bbox.x0);
+
+  const dateWords: typeof ocrResult.words = [];
+  for (const w of sameLine) {
+    const wordText = w.text.toLowerCase().trim();
+    
+    if (wordText.includes(year)) {
+      dateWords.push(w);
+    } else if (month && monthKeywords.some((mk) => wordText.includes(mk) || mk.includes(wordText))) {
+      dateWords.push(w);
+    } else if (day && wordText === day) {
+      dateWords.push(w);
+    }
+  }
+
+  if (dateWords.length === 0) {
+    return {
+      x: bestMatch.bbox.x0 - 2,
+      y: bestMatch.bbox.y0 - 2,
+      width: bestMatch.bbox.x1 - bestMatch.bbox.x0 + 4,
+      height: bestMatch.bbox.y1 - bestMatch.bbox.y0 + 4,
+    };
+  }
+
+  const xs = dateWords.map((w) => w.bbox.x0);
+  const xEnds = dateWords.map((w) => w.bbox.x1);
+  const ys = dateWords.map((w) => w.bbox.y0);
+  const yEnds = dateWords.map((w) => w.bbox.y1);
+
+  return {
+    x: Math.min(...xs) - 4,
+    y: Math.min(...ys) - 4,
+    width: Math.max(...xEnds) - Math.min(...xs) + 8,
+    height: Math.max(...yEnds) - Math.min(...ys) + 8,
+  };
 }
 
 // 去重
