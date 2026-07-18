@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-19 02:30:00 北京时间';
+export const BUILD_TIMESTAMP = '2026-07-19 03:15:00 北京时间';
 
 export interface ChangelogEntry {
   version: string;
@@ -11,14 +11,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: 'v3.1.0',
+    version: 'v3.2.0',
     date: '2026-07-19',
     changes: [
-      '修复findDateGroups中重复排序bug：同行内按y重排会打乱x0顺序，导致滑动窗口组合不出日期',
-      '增加OCR灰度预处理：去色降噪，提高图片型PDF的OCR识别准确率',
-      '扩展日期关键词：参考完整解决方案文档，补充valid till、accepted as valid until、年度检验等',
-      '查阅pdf.js官方文档确认：transform[5]为基线坐标，height属性不可靠（改用|transform[3]|）',
-      '查阅pdf-lib官方文档确认：drawRectangle坐标系为左下角原点、Y轴向上',
+      '图片型PDF标注方案重构：参考用户提供的方案，直接在Canvas上画框',
+      '移除deviceToUser坐标转换，OCR设备坐标直接用，避免转换错误',
+      '图片型PDF调用annotateImagePdf：PDF→Canvas渲染→Canvas画框→PNG→PDF',
+      '文本型PDF保持原有用pdf-lib标注方案',
+      '修正OCR坐标处理：y=bbox.y0（设备空间左上角原点）',
+      '画框时乘以scale将设备坐标转为Canvas像素坐标',
     ],
   },
   {

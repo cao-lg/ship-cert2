@@ -60,8 +60,11 @@ export async function processCertFile(
       ? subCertificates.flatMap((s) => s.dates)
       : dates;
     if (allDates.length > 0) {
-      // OCR坐标已用deviceToUser转换为用户空间，统一用pdf-lib标注
-      annotatedPdfBytes = await annotatePdf(file.pdfBytes, allDates);
+      if (parseResult.isImageBased) {
+        annotatedPdfBytes = await annotateImagePdf(file.pdfBytes, allDates, ocrScale);
+      } else {
+        annotatedPdfBytes = await annotatePdf(file.pdfBytes, allDates);
+      }
     }
 
     onProgress?.('完成', 1.0);
