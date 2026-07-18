@@ -103,16 +103,17 @@ export function recognizeDatesFromText(
     const dateStr = parseDateFromMatch(standaloneMatch);
     if (!dateStr) continue;
     
-    const position = findDatePosition(textItems, standaloneMatch[0]);
-    
-    dates.push({
-      type: 'EXPIRY' as DateType,
-      date: dateStr,
-      confidence: 0.5,
-      page: position?.page ?? 1,
-      position: position?.position ?? { x: 0, y: 0, width: 100, height: 15 },
-      rawText: standaloneMatch[0],
-    });
+    const positionResult = findDatePosition(textItems, standaloneMatch[0]);
+    if (positionResult) {
+      dates.push({
+        type: 'EXPIRY' as DateType,
+        date: dateStr,
+        confidence: 0.5,
+        page: positionResult.page,
+        position: positionResult.position,
+        rawText: standaloneMatch[0],
+      });
+    }
   }
 
   return deduplicateDates(dates);
@@ -143,15 +144,17 @@ export function recognizeDatesFromOcr(
 
           // 在OCR words中查找位置
           const position = findOcrDatePosition(ocrResult, match[0]);
-
-          dates.push({
-            type: dateType as DateType,
-            date: dateStr,
-            confidence: 0.7,
-            page: pageNum,
-            position: position ?? { x: 0, y: 0, width: 100, height: 15 },
-            rawText: match[0],
-          });
+          // 只有找到位置才添加日期，避免默认值导致框在错误位置
+          if (position) {
+            dates.push({
+              type: dateType as DateType,
+              date: dateStr,
+              confidence: 0.7,
+              page: pageNum,
+              position,
+              rawText: match[0],
+            });
+          }
         }
       }
     }
@@ -306,127 +309,67 @@ function findOcrDatePosition(
 ): { x: number; y: number; width: number; height: number } | null {
   const normalized = matchedText.toLowerCase().trim();
 
-  // 从matchedText中提取日期字符串
-  const dateMatch = normalized.match(/(\d{1,2}\s+\w{3,9}\s+\d{2,4}|\d{1,2}[\/\.\-]\d{1,2}[\/\.\-]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|\w{3,9}\s+\d{1,2},?\s+\d{4})/);
+  // 提取日期中的年份
+  const yearMatch = normalized.match(/(20\d{2}|19\d{2})/);
+  if (!yearMatch) return null;
+  const targetYear = yearMatch[1];
 
-  // 策略1：优先匹配日期数字
-  if (dateMatch) {
-    const dateStr = dateMatch[0].toLowerCase().trim();
-    // 尝试完整日期匹配
-    for (const word of ocrResult.words) {
-      const wordText = word.text.toLowerCase().trim();
-      if (wordText === dateStr || wordText.includes(dateStr)) {
-        const width = word.bbox.x1 - word.bbox.x0;
-        const height = word.bbox.y1 - word.bbox.y0;
-        return {
-          x: word.bbox.x0 - 2,
-          y: word.bbox.y0 - 2,
-          width: width + 4,
-          height: height + 4,
-        };
-      }
-    }
+  // 找到所有包含目标年份的word
+  const yearWords = ocrResult.words.filter((w) => w.text.includes(targetYear));
+  if (yearWords.length === 0) return null;
 
-    // 尝试日期的部分匹配
-    const dateParts = dateStr.split(/[\s,]+/).filter((p) => p.length > 0);
-    const matchedParts: typeof ocrResult.words = [];
-    for (const part of dateParts) {
-      for (const word of ocrResult.words) {
-        const wordText = word.text.toLowerCase().trim();
-        if (wordText === part) {
-          matchedParts.push(word);
-          break;
-        }
-      }
-    }
-    if (matchedParts.length >= 2) {
-      // 只取同一行的words（y坐标相近）
-      const firstWord = matchedParts[0];
-      const sameLine = matchedParts.filter(
-        (word) => Math.abs(word.bbox.y0 - firstWord.bbox.y0) < 10
-      );
-      if (sameLine.length >= 2) {
-        const xs = sameLine.map((w) => w.bbox.x0);
-        const xEnds = sameLine.map((w) => w.bbox.x1);
-        return {
-          x: Math.min(...xs) - 2,
-          y: firstWord.bbox.y0 - 2,
-          width: Math.max(...xEnds) - Math.min(...xs) + 4,
-          height: sameLine[0].bbox.y1 - sameLine[0].bbox.y0 + 4,
-        };
-      }
-    }
-  }
+  // 按y坐标从大到小排序（y大的在上面，PDF坐标系）
+  yearWords.sort((a, b) => b.bbox.y0 - a.bbox.y0);
 
-  // 策略2：查找关键词+日期在同一行的情况
-  // 将words按行分组（y坐标相近的为一行）
-  const sorted = [...ocrResult.words].sort((a, b) => b.bbox.y0 - a.bbox.y0 || a.bbox.x0 - b.bbox.x0);
-  const lines: typeof ocrResult.words[] = [];
-  let currentLine: typeof ocrResult.words = [];
-  let currentY: number | null = null;
+  // 提取月份名称列表
+  const months = [
+    'january', 'february', 'march', 'april', 'may', 'june',
+    'july', 'august', 'september', 'october', 'november', 'december',
+    'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+  ];
 
-  for (const word of sorted) {
-    if (currentY === null || Math.abs(word.bbox.y0 - currentY) < 10) {
-      currentLine.push(word);
-      currentY = currentY === null ? word.bbox.y0 : currentY;
-    } else {
-      if (currentLine.length > 0) lines.push(currentLine);
-      currentLine = [word];
-      currentY = word.bbox.y0;
-    }
-  }
-  if (currentLine.length > 0) lines.push(currentLine);
+  // 遍历每个年份word，找同一行是否有月份
+  for (const yearWord of yearWords) {
+    // 找同一行的word（y坐标相近）
+    const sameLine = ocrResult.words.filter(
+      (w) => Math.abs(w.bbox.y0 - yearWord.bbox.y0) < 20 || Math.abs(w.bbox.y1 - yearWord.bbox.y1) < 20
+    );
+    sameLine.sort((a, b) => a.bbox.x0 - b.bbox.x0);
 
-  // 对每行检查是否包含日期
-  for (const line of lines) {
-    line.sort((a, b) => a.bbox.x0 - b.bbox.x0);
-    const lineText = line.map((w) => w.text).join(' ').toLowerCase().replace(/\s+/g, ' ').trim();
+    // 检查这一行是否有月份名称
+    const lineText = sameLine.map((w) => w.text).join(' ').toLowerCase();
+    const hasMonth = months.some((m) => lineText.includes(m));
 
-    if (dateMatch && lineText.includes(dateMatch[0].toLowerCase())) {
-      const dateWords = line.filter((word) => {
-        const wordText = word.text.toLowerCase().trim();
-        return dateMatch[0].toLowerCase().includes(wordText) && wordText.length > 0;
-      });
+    if (hasMonth || sameLine.length >= 2) {
+      // 找到包含年份和月份的行 → 大概率是日期行
+      // 找到yearWord在行中的位置
+      const idx = sameLine.indexOf(yearWord);
+      // 取年份左边2-3个word（包含月份和日期）
+      const startIdx = Math.max(0, idx - 3);
+      const endIdx = Math.min(sameLine.length - 1, idx + 1);
+      const dateWords = sameLine.slice(startIdx, endIdx + 1);
 
       if (dateWords.length > 0) {
         const xs = dateWords.map((w) => w.bbox.x0);
         const xEnds = dateWords.map((w) => w.bbox.x1);
         return {
           x: Math.min(...xs) - 2,
-          y: dateWords[0].bbox.y0 - 2,
+          y: yearWord.bbox.y0 - 2,
           width: Math.max(...xEnds) - Math.min(...xs) + 4,
-          height: dateWords[0].bbox.y1 - dateWords[0].bbox.y0 + 4,
+          height: yearWord.bbox.y1 - yearWord.bbox.y0 + 4,
         };
       }
-
-      // 如果找不到具体日期word，用整行
-      const xs = line.map((w) => w.bbox.x0);
-      const xEnds = line.map((w) => w.bbox.x1);
-      return {
-        x: Math.min(...xs) - 2,
-        y: line[0].bbox.y0 - 2,
-        width: Math.max(...xEnds) - Math.min(...xs) + 4,
-        height: line[0].bbox.y1 - line[0].bbox.y0 + 4,
-      };
     }
   }
 
-  // 策略3：回退到关键词匹配（仅当上述策略都失败时）
-  const matchWords = normalized.split(/\s+/).filter((w) => w.length > 2);
-  for (const word of ocrResult.words) {
-    if (matchWords.some((mw) => mw.includes(word.text.toLowerCase()) || word.text.toLowerCase().includes(mw))) {
-      const width = word.bbox.x1 - word.bbox.x0;
-      const height = word.bbox.y1 - word.bbox.y0;
-      return {
-        x: word.bbox.x0 - 2,
-        y: word.bbox.y0 - 2,
-        width: width + 4,
-        height: height + 4,
-      };
-    }
-  }
-
-  return null;
+  // 回退：取最靠上的年份word，向左右扩展
+  const topYearWord = yearWords[0];
+  return {
+    x: topYearWord.bbox.x0 - 60,
+    y: topYearWord.bbox.y0 - 2,
+    width: topYearWord.bbox.x1 - topYearWord.bbox.x0 + 120,
+    height: topYearWord.bbox.y1 - topYearWord.bbox.y0 + 4,
+  };
 }
 
 // 去重
