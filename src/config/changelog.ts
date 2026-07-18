@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-18 20:05:00 北京时间';
+export const BUILD_TIMESTAMP = '2026-07-19 01:45:00 北京时间';
 
 export interface ChangelogEntry {
   version: string;
@@ -10,6 +10,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v3.0.0',
+    date: '2026-07-19',
+    changes: [
+      '重构日期识别核心算法：采用滑动窗口+就近关联方案',
+      '新增文本清洗：NFKC归一化、去不可见字符、日期标准化',
+      '滑动窗口找日期：1/3/5 token窗口直接在词上匹配，找到即有坐标',
+      '就近关联算法：±12行窗口内找最近日期，支持日期在关键词上方',
+      '彻底解决框位置不对问题：日期和坐标一步到位，无需二次查找',
+      '参考《完整解决方案代码.md》方案，业界验证的成熟实现',
+    ],
+  },
   {
     version: 'v2.4.0',
     date: '2026-07-18',
