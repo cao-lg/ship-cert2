@@ -7,7 +7,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).toString();
 
-// 在PDF上绘制红色标注框（文本型PDF用pdf-lib直接画）
+// 在PDF上绘制红色标注框（用户空间坐标，pdf-lib直接画）
+// 参考文档第7节：独立内容流，坐标直接用用户空间
 export async function annotatePdf(
   pdfBytes: Uint8Array | ArrayBuffer,
   dates: RecognizedDate[]
@@ -20,23 +21,32 @@ export async function annotatePdf(
     if (pageIndex < 0 || pageIndex >= pages.length) continue;
 
     const page = pages[pageIndex];
-    const { height } = page.getSize();
     const pos = dateInfo.position;
 
-    const x = pos.x;
-    const y = pos.y;
-    const width = Math.max(pos.width, 20);
-    const heightRect = Math.max(pos.height, 10);
+    // pos 存的是用户空间坐标（PDF点，左下角原点）
+    // y0 = 底部，y1 = 顶部
+    const pad = 4;
+    const x = pos.x - pad;
+    const y = pos.y - pad;  // pos.y 是底部
+    const width = Math.max(pos.width, 20) + pad * 2;
+    const heightRect = Math.max(pos.height, 10) + pad * 2;
+
+    // 钳制到页面内
+    const { width: pw, height: ph } = page.getSize();
+    const xClamped = Math.max(0, Math.min(x, pw));
+    const yClamped = Math.max(0, Math.min(y, ph));
+    const wClamped = Math.min(width, pw - xClamped);
+    const hClamped = Math.min(heightRect, ph - yClamped);
 
     page.drawRectangle({
-      x,
-      y,
-      width,
-      height: heightRect,
+      x: xClamped,
+      y: yClamped,
+      width: wClamped,
+      height: hClamped,
       borderColor: rgb(1, 0, 0),
       borderWidth: 2,
-      color: rgb(1, 0, 0),
-      opacity: 0.05,
+      opacity: 0,  // 完全透明填充，不遮挡文字
+      borderOpacity: 1,
     });
   }
 

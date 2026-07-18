@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-18 16:00:00 北京时间';
+export const BUILD_TIMESTAMP = '2026-07-18 16:30:00 北京时间';
 
 export interface ChangelogEntry {
   version: string;
@@ -11,14 +11,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: 'v2.1.0',
+    version: 'v2.2.0',
     date: '2026-07-18',
     changes: [
-      '全新方案：图片型PDF直接在Canvas上画框，彻底避免坐标转换问题',
-      'OCR返回原始Canvas像素坐标，标注时直接在Canvas上绘制红框',
-      '标注后的页面从Canvas转成PNG嵌入PDF，100%保证框的位置正确',
-      '文本型PDF仍使用pdf-lib直接标注',
-      '优化同一行判断阈值，适配像素坐标',
+      '采用业界验证方案：用视口变换矩阵求逆(deviceToUser)做坐标转换',
+      'OCR的Canvas设备坐标 → PDF用户空间坐标，数学上精确转换',
+      '支持旋转页面：通过viewport.transform矩阵自动处理旋转',
+      '保留原始PDF：不再转成图片型，用pdf-lib直接在原PDF上标注',
+      '参考OCR与画框方案说明文档的实现，透明填充不遮挡文字',
     ],
   },
   {

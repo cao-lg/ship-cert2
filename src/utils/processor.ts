@@ -60,13 +60,8 @@ export async function processCertFile(
       ? subCertificates.flatMap((s) => s.dates)
       : dates;
     if (allDates.length > 0) {
-      if (parseResult.isImageBased) {
-        // 图片型PDF：在Canvas上直接画框，避免坐标转换
-        annotatedPdfBytes = await annotateImagePdf(file.pdfBytes, allDates, ocrScale);
-      } else {
-        // 文本型PDF：用pdf-lib直接画框
-        annotatedPdfBytes = await annotatePdf(file.pdfBytes, allDates);
-      }
+      // OCR坐标已用deviceToUser转换为用户空间，统一用pdf-lib标注
+      annotatedPdfBytes = await annotatePdf(file.pdfBytes, allDates);
     }
 
     onProgress?.('完成', 1.0);

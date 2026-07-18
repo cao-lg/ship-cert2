@@ -393,7 +393,7 @@ function findOcrDatePosition(
   for (const yearWord of yearWords) {
     const yearCenterY = (yearWord.bbox.y0 + yearWord.bbox.y1) / 2;
     const lineHeight = yearWord.bbox.y1 - yearWord.bbox.y0;
-    const threshold = Math.max(lineHeight * 2, 50); // 像素坐标，阈值要大一些
+    const threshold = Math.max(lineHeight * 1.5, 15); // 用户空间坐标（PDF点），阈值小
     
     const sameLine = ocrResult.words.filter((w) => {
       const wCenterY = (w.bbox.y0 + w.bbox.y1) / 2;
@@ -440,7 +440,7 @@ function findOcrDatePosition(
 
   const bestCenterY = (bestMatch.bbox.y0 + bestMatch.bbox.y1) / 2;
   const bestLineHeight = bestMatch.bbox.y1 - bestMatch.bbox.y0;
-  const bestThreshold = Math.max(bestLineHeight * 2, 50);
+  const bestThreshold = Math.max(bestLineHeight * 1.5, 15);
   const sameLine = ocrResult.words.filter((w) => {
     const wCenterY = (w.bbox.y0 + w.bbox.y1) / 2;
     return Math.abs(wCenterY - bestCenterY) < bestThreshold;

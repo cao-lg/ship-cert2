@@ -13,15 +13,25 @@ async function getOcrWorker(): Promise<Worker> {
 export interface OcrWord {
   text: string;
   confidence: number;
-  // Canvas坐标（左上角原点，y向下）—— 原始OCR坐标，不转换
+  // 用户空间坐标（PDF坐标，左下角原点）—— 已转换
   bbox: { x0: number; y0: number; x1: number; y1: number };
 }
 
 export interface OcrResult {
   text: string;
   words: OcrWord[];
-  // 渲染时的scale，用于后续坐标转换
   scale: number;
+}
+
+// 设备空间（视口/Canvas）→ 用户空间（PDF）
+// 用视口变换矩阵求逆，参考 OCR与画框方案说明.md 第4.3节
+function deviceToUser(vp: { transform: number[] }, dx: number, dy: number): [number, number] {
+  const [a, b, c, d, e, f] = vp.transform;
+  const det = a * d - b * c;
+  if (Math.abs(det) < 1e-10) return [dx, dy];
+  const x = (d * (dx - e) - c * (dy - f)) / det;
+  const y = (-b * (dx - e) + a * (dy - f)) / det;
+  return [x, y];
 }
 
 // OCR识别PDF页面
@@ -59,15 +69,30 @@ export async function ocrPdfPage(
 
   if (ocrData.words && ocrData.words.length > 0) {
     for (const w of ocrData.words) {
-      // 保留原始Canvas坐标（像素坐标），不转换
+      // OCR bbox 是 Canvas 像素坐标（设备空间，左上角原点）
+      // 1. 除以 scale 得到 PDF 设备坐标
+      // 2. 用 deviceToUser 转换为用户空间（PDF坐标，左下角原点）
+      const dx0 = w.bbox.x0 / scale;
+      const dx1 = w.bbox.x1 / scale;
+      const dyTop = w.bbox.y0 / scale;  // Canvas y0 = 文字顶部（y小）
+      const dyBot = w.bbox.y1 / scale;  // Canvas y1 = 文字底部（y大）
+      
+      // 四个角点转换
+      const pts = [
+        [dx0, dyTop], [dx1, dyTop], [dx0, dyBot], [dx1, dyBot]
+      ].map(([dx, dy]) => deviceToUser(viewport, dx, dy));
+      
+      const uxs = pts.map((p) => p[0]);
+      const uys = pts.map((p) => p[1]);
+      
       words.push({
         text: w.text,
         confidence: w.confidence / 100,
         bbox: {
-          x0: w.bbox.x0,
-          y0: w.bbox.y0,
-          x1: w.bbox.x1,
-          y1: w.bbox.y1,
+          x0: Math.min(...uxs),
+          y0: Math.min(...uys),  // 用户空间 y 小 = 底部
+          x1: Math.max(...uxs),
+          y1: Math.max(...uys),  // 用户空间 y 大 = 顶部
         },
       });
     }
