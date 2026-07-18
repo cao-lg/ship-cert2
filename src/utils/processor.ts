@@ -1,8 +1,8 @@
 import { CertFile, SubCertificate, CERT_TYPE_INFO } from '@/types';
 import { parsePdf, renderPageToCanvas } from './pdfParser';
-import { ocrFullPdf } from './ocr';
+import { ocrFullPdf, OcrResult } from './ocr';
 import { recognizeDatesFromText, recognizeDatesFromOcr } from './dateRecognizer';
-import { annotatePdf } from './pdfAnnotator';
+import { annotatePdf, annotateImagePdf } from './pdfAnnotator';
 import { detectCertType, detectCertNumber, detectSubCertificates } from '@/store/certStore';
 
 // 处理单个证书文件：解析、识别、标注
@@ -23,6 +23,7 @@ export async function processCertFile(
     // 3. 识别日期
     let dates;
     let subCertificates: SubCertificate[] | undefined;
+    let ocrScale = 3.0;
 
     if (parseResult.isImageBased) {
       // 图片型PDF：OCR识别
@@ -30,8 +31,8 @@ export async function processCertFile(
       const ocrResults = await ocrFullPdf(file.pdfBytes, parseResult.pageCount, (page, total) => {
         onProgress?.(`OCR识别第${page}/${total}页...`, 0.3 + (page / total) * 0.4);
       });
+      ocrScale = ocrResults[0]?.scale || 3.0;
       dates = recognizeDatesFromOcr(ocrResults);
-      // 图片型PDF暂不分割子证书（OCR结果难以精确判断边界）
     } else {
       // 文本型PDF：直接识别
       onProgress?.('提取日期信息...', 0.4);
@@ -40,7 +41,6 @@ export async function processCertFile(
       // 检测多证书PDF
       const detectedSubs = detectSubCertificates(parseResult.textItems, parseResult.pageCount);
       if (detectedSubs.length > 1) {
-        // 多证书PDF：按子证书范围提取日期
         subCertificates = detectedSubs.map((sub) => {
           const subTextItems = parseResult.textItems.filter(
             (item) => item.page >= sub.startIndex + 1 && item.page <= sub.endIndex + 1
@@ -60,7 +60,13 @@ export async function processCertFile(
       ? subCertificates.flatMap((s) => s.dates)
       : dates;
     if (allDates.length > 0) {
-      annotatedPdfBytes = await annotatePdf(file.pdfBytes, allDates);
+      if (parseResult.isImageBased) {
+        // 图片型PDF：在Canvas上直接画框，避免坐标转换
+        annotatedPdfBytes = await annotateImagePdf(file.pdfBytes, allDates, ocrScale);
+      } else {
+        // 文本型PDF：用pdf-lib直接画框
+        annotatedPdfBytes = await annotatePdf(file.pdfBytes, allDates);
+      }
     }
 
     onProgress?.('完成', 1.0);

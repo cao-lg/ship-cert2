@@ -1,7 +1,13 @@
 import { PDFDocument, rgb } from 'pdf-lib';
 import { RecognizedDate, SubCertificate, CERT_MERGE_ORDER, CertType } from '@/types';
+import * as pdfjsLib from 'pdfjs-dist';
 
-// 在PDF上绘制红色标注框
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
+
+// 在PDF上绘制红色标注框（文本型PDF用pdf-lib直接画）
 export async function annotatePdf(
   pdfBytes: Uint8Array | ArrayBuffer,
   dates: RecognizedDate[]
@@ -37,6 +43,70 @@ export async function annotatePdf(
   return pdfDoc.save();
 }
 
+// 图片型PDF标注：渲染到Canvas → 直接在Canvas上画框 → 转成PDF
+// 这样完全避免坐标转换，OCR的Canvas坐标直接用
+export async function annotateImagePdf(
+  pdfBytes: Uint8Array | ArrayBuffer,
+  dates: RecognizedDate[],
+  scale: number = 3.0
+): Promise<Uint8Array> {
+  const buffer = new Uint8Array(pdfBytes).slice().buffer;
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+  const pageCount = pdf.numPages;
+
+  // 按页分组日期
+  const datesByPage = new Map<number, RecognizedDate[]>();
+  for (const d of dates) {
+    const pageDates = datesByPage.get(d.page) || [];
+    pageDates.push(d);
+    datesByPage.set(d.page, pageDates);
+  }
+
+  const outputPdf = await PDFDocument.create();
+
+  for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const viewport = page.getViewport({ scale });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d')!;
+
+    // 渲染PDF页面到Canvas
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    // 在Canvas上直接画红框（用OCR的原始Canvas坐标，无需转换！）
+    const pageDates = datesByPage.get(pageNum) || [];
+    for (const d of pageDates) {
+      const pos = d.position;
+      // pos存的就是Canvas像素坐标（OCR原始坐标）
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 3;
+      ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
+      ctx.fillRect(pos.x, pos.y, pos.width, pos.height);
+      ctx.strokeRect(pos.x, pos.y, pos.width, pos.height);
+    }
+
+    // 把Canvas转成PNG，嵌入新PDF
+    const pngData = canvas.toDataURL('image/png');
+    const pngBytes = await fetch(pngData).then((r) => r.arrayBuffer());
+    const pngImage = await outputPdf.embedPng(pngBytes);
+
+    // 创建与原始页面相同尺寸的PDF页
+    const origViewport = page.getViewport({ scale: 1.0 });
+    const newPage = outputPdf.addPage([origViewport.width, origViewport.height]);
+    newPage.drawImage(pngImage, {
+      x: 0,
+      y: 0,
+      width: origViewport.width,
+      height: origViewport.height,
+    });
+  }
+
+  return outputPdf.save();
+}
+
 // 获取证书类型排序值
 function getCertTypeOrder(certType: CertType): number {
   const order = CERT_MERGE_ORDER.indexOf(certType);
@@ -53,7 +123,6 @@ export async function mergePdfsByCertType(
 ): Promise<Uint8Array> {
   const mergedPdf = await PDFDocument.create();
 
-  // 收集所有合并条目
   interface MergeItem {
     bytes: Uint8Array;
     order: number;
@@ -66,7 +135,6 @@ export async function mergePdfsByCertType(
 
   for (const file of files) {
     if (file.subCertificates && file.subCertificates.length > 0) {
-      // 多证书PDF：按子证书分割
       for (const sub of file.subCertificates) {
         items.push({
           bytes: file.bytes,
@@ -77,7 +145,6 @@ export async function mergePdfsByCertType(
         });
       }
     } else {
-      // 单证书PDF
       items.push({
         bytes: file.bytes,
         order: getCertTypeOrder(file.certType),
@@ -86,7 +153,6 @@ export async function mergePdfsByCertType(
     }
   }
 
-  // 按order排序（即按证书类型合并顺序）
   items.sort((a, b) => a.order - b.order);
 
   for (const item of items) {
@@ -94,7 +160,6 @@ export async function mergePdfsByCertType(
       const srcDoc = await PDFDocument.load(item.bytes);
       const totalPages = srcDoc.getPageIndices();
 
-      // 如果指定了页面范围，只复制该范围
       let pageIndices: number[];
       if (item.startIndex !== undefined && item.endIndex !== undefined) {
         pageIndices = totalPages.filter(

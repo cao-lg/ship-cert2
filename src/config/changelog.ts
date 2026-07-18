@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-18 15:30:00 北京时间';
+export const BUILD_TIMESTAMP = '2026-07-18 16:00:00 北京时间';
 
 export interface ChangelogEntry {
   version: string;
@@ -11,14 +11,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: 'v2.0.0',
+    version: 'v2.1.0',
     date: '2026-07-18',
     changes: [
-      '重构OCR坐标系统：直接使用顶层words数据，避免lines数据的坐标相对值问题',
-      '重写OCR日期位置匹配算法：使用中心点判断同一行，更准确',
-      '修复数字月份误匹配问题：区分文字月份和数字月份，避免"02"被误当作月份匹配',
-      '严格匹配标准：必须同时找到年份+月份/日期至少两项才算匹配成功',
-      '优化年份word筛选：只匹配纯年份或开头/结尾是年份的word',
+      '全新方案：图片型PDF直接在Canvas上画框，彻底避免坐标转换问题',
+      'OCR返回原始Canvas像素坐标，标注时直接在Canvas上绘制红框',
+      '标注后的页面从Canvas转成PNG嵌入PDF，100%保证框的位置正确',
+      '文本型PDF仍使用pdf-lib直接标注',
+      '优化同一行判断阈值，适配像素坐标',
     ],
   },
   {

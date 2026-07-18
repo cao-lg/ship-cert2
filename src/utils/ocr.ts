@@ -1,5 +1,4 @@
 import { createWorker, Worker } from 'tesseract.js';
-import { renderPageToCanvas } from './pdfParser';
 import * as pdfjsLib from 'pdfjs-dist';
 
 let ocrWorker: Worker | null = null;
@@ -14,12 +13,15 @@ async function getOcrWorker(): Promise<Worker> {
 export interface OcrWord {
   text: string;
   confidence: number;
+  // Canvas坐标（左上角原点，y向下）—— 原始OCR坐标，不转换
   bbox: { x0: number; y0: number; x1: number; y1: number };
 }
 
 export interface OcrResult {
   text: string;
   words: OcrWord[];
+  // 渲染时的scale，用于后续坐标转换
+  scale: number;
 }
 
 // OCR识别PDF页面
@@ -40,8 +42,6 @@ export async function ocrPdfPage(
   
   const ctx = canvas.getContext('2d')!;
   await page.render({ canvasContext: ctx, viewport }).promise;
-  
-  const pageHeight = viewport.height / scale;
 
   const worker = await getOcrWorker();
   const result = await worker.recognize(canvas);
@@ -59,19 +59,15 @@ export async function ocrPdfPage(
 
   if (ocrData.words && ocrData.words.length > 0) {
     for (const w of ocrData.words) {
-      const canvasX0 = w.bbox.x0 / scale;
-      const canvasY0 = w.bbox.y0 / scale;
-      const canvasX1 = w.bbox.x1 / scale;
-      const canvasY1 = w.bbox.y1 / scale;
-      
+      // 保留原始Canvas坐标（像素坐标），不转换
       words.push({
         text: w.text,
         confidence: w.confidence / 100,
         bbox: {
-          x0: canvasX0,
-          y0: pageHeight - canvasY1,
-          x1: canvasX1,
-          y1: pageHeight - canvasY0,
+          x0: w.bbox.x0,
+          y0: w.bbox.y0,
+          x1: w.bbox.x1,
+          y1: w.bbox.y1,
         },
       });
     }
@@ -80,6 +76,7 @@ export async function ocrPdfPage(
   return {
     text: ocrData.text,
     words,
+    scale,
   };
 }
 
