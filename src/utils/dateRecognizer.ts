@@ -167,59 +167,64 @@ function findDatePosition(
 ): { page: number; position: { x: number; y: number; width: number; height: number } } | null {
   const normalized = matchedText.toLowerCase().trim();
 
-  // 策略1：查找包含日期数字的关键item（最可靠）
-  // 从matchedText中提取日期相关的关键词和数字
-  const dateTokens = normalized.split(/[\s:,]+/).filter((t) => t.length > 0);
+  // 从matchedText中提取日期字符串（如 "19 March 2026", "18/09/2026" 等）
+  const dateMatch = normalized.match(/(\d{1,2}\s+\w{3,9}\s+\d{2,4}|\d{1,2}[\/\.\-]\d{1,2}[\/\.\-]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|\w{3,9}\s+\d{1,2},?\s+\d{4})/);
 
-  // 找到所有与matchedText中token匹配的textItems
-  const matchedItems: Array<{ item: TextItem; tokenIdx: number }> = [];
-  for (let tokenIdx = 0; tokenIdx < dateTokens.length; tokenIdx++) {
-    const token = dateTokens[tokenIdx];
-    if (token.length < 2) continue;
+  // 策略1：直接查找包含日期数字的textItem（最可靠）
+  if (dateMatch) {
+    const dateStr = dateMatch[0].toLowerCase().trim();
+    // 尝试完整日期匹配
     for (const item of textItems) {
       const itemText = item.text.toLowerCase().trim();
-      if (itemText === token || (itemText.length > 2 && (itemText.includes(token) || token.includes(itemText)))) {
-        matchedItems.push({ item, tokenIdx });
+      if (itemText === dateStr || itemText.includes(dateStr)) {
+        return {
+          page: item.page,
+          position: {
+            x: item.x - 2,
+            y: item.y - 2,
+            width: item.width + 4,
+            height: item.height + 4,
+          },
+        };
+      }
+    }
+
+    // 尝试日期的部分匹配（如"19 March 2026"可能被分成多个item）
+    const dateParts = dateStr.split(/[\s,]+/).filter((p) => p.length > 0);
+    const matchedParts: TextItem[] = [];
+    for (const part of dateParts) {
+      for (const item of textItems) {
+        const itemText = item.text.toLowerCase().trim();
+        if (itemText === part) {
+          matchedParts.push(item);
+          break;
+        }
+      }
+    }
+    if (matchedParts.length >= 2) {
+      // 只取同一页同一行的items
+      const firstItem = matchedParts[0];
+      const sameLine = matchedParts.filter(
+        (item) => item.page === firstItem.page && Math.abs(item.y - firstItem.y) < 5
+      );
+      if (sameLine.length >= 2) {
+        const xs = sameLine.map((i) => i.x);
+        const xEnds = sameLine.map((i) => i.x + i.width);
+        return {
+          page: firstItem.page,
+          position: {
+            x: Math.min(...xs) - 2,
+            y: firstItem.y - 2,
+            width: Math.max(...xEnds) - Math.min(...xs) + 4,
+            height: firstItem.height + 4,
+          },
+        };
       }
     }
   }
 
-  if (matchedItems.length > 0) {
-    // 找到连续匹配的item组
-    matchedItems.sort((a, b) => {
-      if (a.item.page !== b.item.page) return a.item.page - b.item.page;
-      return a.item.y - b.item.y;
-    });
-
-    // 取第一组匹配的items计算包围框
-    const firstPage = matchedItems[0].item.page;
-    const samePageItems = matchedItems.filter((m) => m.item.page === firstPage);
-
-    if (samePageItems.length > 0) {
-      const xs = samePageItems.map((m) => m.item.x);
-      const ys = samePageItems.map((m) => m.item.y);
-      const xEnds = samePageItems.map((m) => m.item.x + m.item.width);
-      const yEnds = samePageItems.map((m) => m.item.y + m.item.height);
-
-      const minX = Math.min(...xs);
-      const maxX = Math.max(...xEnds);
-      const minY = Math.min(...ys);
-      const maxY = Math.max(...yEnds);
-
-      return {
-        page: firstPage,
-        position: {
-          x: minX - 2,
-          y: minY - 2,
-          width: maxX - minX + 4,
-          height: maxY - minY + 4,
-        },
-      };
-    }
-  }
-
-  // 策略2：按行组合查找
-  // 将textItems按行分组（y坐标相近的为一行）
+  // 策略2：查找关键词+日期在同一行的情况
+  // 将textItems按页和行分组
   const pageGroups: Record<number, TextItem[]> = {};
   for (const item of textItems) {
     if (!pageGroups[item.page]) pageGroups[item.page] = [];
@@ -228,10 +233,10 @@ function findDatePosition(
 
   for (const [pageStr, items] of Object.entries(pageGroups)) {
     const page = parseInt(pageStr);
-    // 按y坐标排序
+    // 按y坐标排序（y大的在上面，因为左下角原点）
     const sorted = [...items].sort((a, b) => b.y - a.y || a.x - b.x);
 
-    // 分行
+    // 分行：y坐标相近的为一行
     const lines: TextItem[][] = [];
     let currentLine: TextItem[] = [];
     let currentY: number | null = null;
@@ -239,7 +244,7 @@ function findDatePosition(
     for (const item of sorted) {
       if (currentY === null || Math.abs(item.y - currentY) < 5) {
         currentLine.push(item);
-        currentY = item.y;
+        currentY = currentY === null ? item.y : currentY;
       } else {
         if (currentLine.length > 0) lines.push(currentLine);
         currentLine = [item];
@@ -248,26 +253,43 @@ function findDatePosition(
     }
     if (currentLine.length > 0) lines.push(currentLine);
 
-    // 对每行，按x坐标排序后拼接文本
+    // 对每行检查是否包含matchedText的关键内容
     for (const line of lines) {
       line.sort((a, b) => a.x - b.x);
       const lineText = line.map((i) => i.text).join(' ').toLowerCase().replace(/\s+/g, ' ').trim();
-      const lineNormalized = normalized.replace(/\s+/g, ' ').trim();
 
-      // 检查行文本是否包含matchedText的关键部分
-      if (lineText.includes(lineNormalized) || lineNormalized.includes(lineText)) {
+      // 检查行文本是否包含日期
+      if (dateMatch && lineText.includes(dateMatch[0].toLowerCase())) {
+        // 找到日期在行中的位置
+        const dateItems = line.filter((item) => {
+          const itemText = item.text.toLowerCase().trim();
+          return dateMatch[0].toLowerCase().includes(itemText) && itemText.length > 0;
+        });
+
+        if (dateItems.length > 0) {
+          const xs = dateItems.map((i) => i.x);
+          const xEnds = dateItems.map((i) => i.x + i.width);
+          return {
+            page,
+            position: {
+              x: Math.min(...xs) - 2,
+              y: dateItems[0].y - 2,
+              width: Math.max(...xEnds) - Math.min(...xs) + 4,
+              height: dateItems[0].height + 4,
+            },
+          };
+        }
+
+        // 如果找不到具体日期item，用整行
         const xs = line.map((i) => i.x);
         const xEnds = line.map((i) => i.x + i.width);
-        const ys = line.map((i) => i.y);
-        const yEnds = line.map((i) => i.y + i.height);
-
         return {
           page,
           position: {
             x: Math.min(...xs) - 2,
-            y: Math.min(...ys) - 2,
+            y: line[0].y - 2,
             width: Math.max(...xEnds) - Math.min(...xs) + 4,
-            height: Math.max(...yEnds) - Math.min(...ys) + 4,
+            height: line[0].height + 4,
           },
         };
       }

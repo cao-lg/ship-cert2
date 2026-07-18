@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-18 16:30:00 UTC';
+export const BUILD_TIMESTAMP = '2026-07-18 17:15:00 UTC';
 
 export interface ChangelogEntry {
   version: string;
@@ -10,6 +10,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v1.4.0',
+    date: '2026-07-18',
+    changes: [
+      '重写日期坐标匹配算法，修复标注框位置错误',
+      '优先匹配包含日期数字的文本项，避免误匹配页眉页脚',
+      '使用pdf.js实际文本宽度替代估算值',
+      '扩展日期关键词：支持expires on、certificate expires等',
+    ],
+  },
   {
     version: 'v1.3.0',
     date: '2026-07-18',

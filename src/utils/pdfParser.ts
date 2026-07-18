@@ -41,7 +41,9 @@ export async function parsePdf(data: Uint8Array | ArrayBuffer): Promise<ParseRes
 
       const transform = (item as { transform: number[] }).transform;
       const itemHeight = Math.abs(transform[3]) || 12;
-      const itemWidth = Math.abs(transform[0] * str.length) || str.length * 8;
+      // 使用pdf.js提供的实际宽度，如果有的话
+      const rawWidth = (item as { width?: number }).width;
+      const itemWidth = rawWidth || Math.abs(transform[0] * str.length) || str.length * 8;
 
       allTextItems.push({
         text: str,
