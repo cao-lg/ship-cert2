@@ -184,7 +184,7 @@ export default function UploadPage() {
         {/* 空状态提示 */}
         {files.length === 0 && (
           <div className="mt-12 text-center text-gray-400">
-            <p className="text-sm">支持的证书类型：REG / MM / LL / SC / ISSC / IOPP / TON</p>
+            <p className="text-sm">支持的证书类型：REG / MM / LL / SC / ISSC / IOPP / TON / SMC / CLC / DOC / COF / SE / SR</p>
           </div>
         )}
       </div>
