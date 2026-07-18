@@ -344,6 +344,7 @@ function findOcrDatePosition(
   let day = '';
   let month = '';
   let year = '';
+  let isNumericMonth = false;
 
   const m1 = normalized.match(datePattern);
   if (m1) {
@@ -356,12 +357,14 @@ function findOcrDatePosition(
       day = m2[1];
       month = m2[2];
       year = m2[3];
+      isNumericMonth = true;
     } else {
       const m3 = normalized.match(datePattern3);
       if (m3) {
         year = m3[1];
         month = m3[2];
         day = m3[3];
+        isNumericMonth = true;
       } else {
         const m4 = normalized.match(datePattern4);
         if (m4) {
@@ -375,38 +378,55 @@ function findOcrDatePosition(
 
   if (!year) return null;
 
-  const yearWords = ocrResult.words.filter((w) => w.text.includes(year));
+  const yearWords = ocrResult.words.filter((w) => w.text.trim() === year || w.text.trim().startsWith(year) || w.text.trim().endsWith(year));
   if (yearWords.length === 0) return null;
 
-  const monthKeywords = [
+  const monthWordNames = [
     'january', 'february', 'march', 'april', 'may', 'june',
     'july', 'august', 'september', 'october', 'november', 'december',
     'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
-    '01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12',
   ];
 
   let bestMatch: typeof ocrResult.words[0] | null = null;
-  let bestScore = 0;
+  let bestScore = -1;
 
   for (const yearWord of yearWords) {
-    const sameLine = ocrResult.words.filter(
-      (w) => Math.abs(w.bbox.y0 - yearWord.bbox.y0) < 30 && Math.abs(w.bbox.y1 - yearWord.bbox.y1) < 30
-    );
+    const yearCenterY = (yearWord.bbox.y0 + yearWord.bbox.y1) / 2;
+    
+    const sameLine = ocrResult.words.filter((w) => {
+      const wCenterY = (w.bbox.y0 + w.bbox.y1) / 2;
+      return Math.abs(wCenterY - yearCenterY) < 25;
+    });
     sameLine.sort((a, b) => a.bbox.x0 - b.bbox.x0);
 
-    let score = 1;
+    let score = 0;
+    let hasMonthWord = false;
+    let hasDay = false;
 
     for (const w of sameLine) {
       const wordText = w.text.toLowerCase().trim();
       
-      if (month && monthKeywords.some((mk) => wordText.includes(mk) || mk.includes(wordText))) {
-        score += 2;
+      if (!isNumericMonth && month) {
+        const fullMonth = month.length >= 3 ? month : monthWordNames.find((m) => m.startsWith(month));
+        if (fullMonth && (wordText === fullMonth || wordText.startsWith(fullMonth.substring(0, 3)))) {
+          hasMonthWord = true;
+        }
       }
       
-      if (day && wordText === day) {
-        score += 2;
+      if (isNumericMonth && month) {
+        if (wordText === month || wordText === month.padStart(2, '0')) {
+          hasMonthWord = true;
+        }
+      }
+      
+      if (day && (wordText === day || wordText === day.padStart(2, '0'))) {
+        hasDay = true;
       }
     }
+
+    if (hasMonthWord) score += 3;
+    if (hasDay) score += 2;
+    score += 1;
 
     if (score > bestScore) {
       bestScore = score;
@@ -414,34 +434,35 @@ function findOcrDatePosition(
     }
   }
 
-  if (!bestMatch) return null;
+  if (!bestMatch || bestScore <= 1) return null;
 
-  const sameLine = ocrResult.words.filter(
-    (w) => Math.abs(w.bbox.y0 - bestMatch.bbox.y0) < 30 && Math.abs(w.bbox.y1 - bestMatch.bbox.y1) < 30
-  );
+  const bestCenterY = (bestMatch.bbox.y0 + bestMatch.bbox.y1) / 2;
+  const sameLine = ocrResult.words.filter((w) => {
+    const wCenterY = (w.bbox.y0 + w.bbox.y1) / 2;
+    return Math.abs(wCenterY - bestCenterY) < 25;
+  });
   sameLine.sort((a, b) => a.bbox.x0 - b.bbox.x0);
 
   const dateWords: typeof ocrResult.words = [];
   for (const w of sameLine) {
     const wordText = w.text.toLowerCase().trim();
+    const cleanText = wordText.replace(/[\(\)\.,]/g, '');
     
-    if (wordText.includes(year)) {
+    if (cleanText === year || cleanText.startsWith(year) || cleanText.endsWith(year)) {
       dateWords.push(w);
-    } else if (month && monthKeywords.some((mk) => wordText.includes(mk) || mk.includes(wordText))) {
+    } else if (!isNumericMonth && month) {
+      const fullMonth = month.length >= 3 ? month : monthWordNames.find((m) => m.startsWith(month));
+      if (fullMonth && (cleanText === fullMonth || cleanText.startsWith(fullMonth.substring(0, 3)))) {
+        dateWords.push(w);
+      }
+    } else if (isNumericMonth && month && (cleanText === month || cleanText === month.padStart(2, '0'))) {
       dateWords.push(w);
-    } else if (day && wordText === day) {
+    } else if (day && (cleanText === day || cleanText === day.padStart(2, '0'))) {
       dateWords.push(w);
     }
   }
 
-  if (dateWords.length === 0) {
-    return {
-      x: bestMatch.bbox.x0 - 2,
-      y: bestMatch.bbox.y0 - 2,
-      width: bestMatch.bbox.x1 - bestMatch.bbox.x0 + 4,
-      height: bestMatch.bbox.y1 - bestMatch.bbox.y0 + 4,
-    };
-  }
+  if (dateWords.length < 2) return null;
 
   const xs = dateWords.map((w) => w.bbox.x0);
   const xEnds = dateWords.map((w) => w.bbox.x1);
@@ -449,10 +470,10 @@ function findOcrDatePosition(
   const yEnds = dateWords.map((w) => w.bbox.y1);
 
   return {
-    x: Math.min(...xs) - 4,
-    y: Math.min(...ys) - 4,
-    width: Math.max(...xEnds) - Math.min(...xs) + 8,
-    height: Math.max(...yEnds) - Math.min(...ys) + 8,
+    x: Math.min(...xs) - 3,
+    y: Math.min(...ys) - 3,
+    width: Math.max(...xEnds) - Math.min(...xs) + 6,
+    height: Math.max(...yEnds) - Math.min(...ys) + 6,
   };
 }
 
