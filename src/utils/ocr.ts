@@ -64,61 +64,61 @@ export async function ocrPdfPage(
   const words: OcrWord[] = [];
 
   if (ocrData.lines && ocrData.lines.length > 0) {
-    for (const line of ocrData.lines) {
-      if (line.words && line.words.length > 0) {
-        for (const w of line.words) {
-          const x0 = w.bbox.x0 / scale;
-          const x1 = w.bbox.x1 / scale;
-          const y0 = w.bbox.y0 / scale;
-          const y1 = w.bbox.y1 / scale;
+      for (const line of ocrData.lines) {
+        if (line.words && line.words.length > 0) {
+          for (const w of line.words) {
+            const canvasX0 = w.bbox.x0 / scale;
+            const canvasY0 = w.bbox.y0 / scale;
+            const canvasX1 = w.bbox.x1 / scale;
+            const canvasY1 = w.bbox.y1 / scale;
+            
+            words.push({
+              text: w.text,
+              confidence: w.confidence ? w.confidence / 100 : (line.confidence || 0) / 100,
+              bbox: {
+                x0: canvasX0,
+                y0: pageHeight - canvasY1,
+                x1: canvasX1,
+                y1: pageHeight - canvasY0,
+              },
+            });
+          }
+        } else {
+          const canvasX0 = line.bbox.x0 / scale;
+          const canvasY0 = line.bbox.y0 / scale;
+          const canvasX1 = line.bbox.x1 / scale;
+          const canvasY1 = line.bbox.y1 / scale;
           
           words.push({
-            text: w.text,
-            confidence: w.confidence ? w.confidence / 100 : (line.confidence || 0) / 100,
+            text: line.text,
+            confidence: (line.confidence || 0) / 100,
             bbox: {
-              x0,
-              y0: pageHeight - y1,
-              x1,
-              y1: pageHeight - y0,
+              x0: canvasX0,
+              y0: pageHeight - canvasY1,
+              x1: canvasX1,
+              y1: pageHeight - canvasY0,
             },
           });
         }
-      } else {
-        const x0 = line.bbox.x0 / scale;
-        const x1 = line.bbox.x1 / scale;
-        const y0 = line.bbox.y0 / scale;
-        const y1 = line.bbox.y1 / scale;
-        
+      }
+    } else if (ocrData.words) {
+      for (const w of ocrData.words) {
+        const canvasX0 = w.bbox.x0 / scale;
+        const canvasY0 = w.bbox.y0 / scale;
+        const canvasX1 = w.bbox.x1 / scale;
+        const canvasY1 = w.bbox.y1 / scale;
         words.push({
-          text: line.text,
-          confidence: (line.confidence || 0) / 100,
+          text: w.text,
+          confidence: w.confidence / 100,
           bbox: {
-            x0,
-            y0: pageHeight - y1,
-            x1,
-            y1: pageHeight - y0,
+            x0: canvasX0,
+            y0: pageHeight - canvasY1,
+            x1: canvasX1,
+            y1: pageHeight - canvasY0,
           },
         });
       }
     }
-  } else if (ocrData.words) {
-    for (const w of ocrData.words) {
-      const x0 = w.bbox.x0 / scale;
-      const y0 = w.bbox.y0 / scale;
-      const x1 = w.bbox.x1 / scale;
-      const y1 = w.bbox.y1 / scale;
-      words.push({
-        text: w.text,
-        confidence: w.confidence / 100,
-        bbox: {
-          x0,
-          y0: pageHeight - y1,
-          x1,
-          y1: pageHeight - y0,
-        },
-      });
-    }
-  }
 
   return {
     text: ocrData.text,

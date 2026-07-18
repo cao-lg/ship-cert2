@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-18 14:30:00 北京时间';
+export const BUILD_TIMESTAMP = '2026-07-18 15:00:00 北京时间';
 
 export interface ChangelogEntry {
   version: string;
@@ -11,13 +11,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: 'v1.8.0',
+    version: 'v1.9.0',
     date: '2026-07-18',
     changes: [
-      '修复OCR坐标转换问题：直接获取PDF页面尺寸，确保Canvas渲染和坐标计算一致',
-      '重写OCR日期位置查找：简化匹配逻辑，使用评分机制选择最匹配的日期行',
-      '优化OCR bbox转换：统一使用pageHeight - y1/y0方式转换为PDF坐标',
-      '修复标注框出现在错误位置（左下角、签名区域）的问题',
+      '修复OCR坐标转换致命bug：对象字面量中变量遮蔽导致y1计算错误',
+      '重命名变量为canvasX0/canvasY0/canvasX1/canvasY1，避免命名冲突',
+      '确保Canvas坐标（左上角原点）正确转换为PDF坐标（左下角原点）',
+      '修复红色框画在错误位置（左下角、签名区域）的问题',
     ],
   },
   {
