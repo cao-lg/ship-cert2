@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-18 17:15:00 UTC';
+export const BUILD_TIMESTAMP = '2026-07-18 17:45:00 UTC';
 
 export interface ChangelogEntry {
   version: string;
@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v1.5.0',
+    date: '2026-07-18',
+    changes: [
+      '修复OCR标注框位置错误：重写findOcrDatePosition，优先匹配日期数字',
+      'OCR坐标转换验证：确保Canvas坐标正确转换为PDF原生坐标',
+    ],
+  },
   {
     version: 'v1.4.0',
     date: '2026-07-18',
