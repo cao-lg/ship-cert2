@@ -23,18 +23,17 @@ export interface OcrResult {
 
 // OCR识别PDF页面
 export async function ocrPdfPage(
-  arrayBuffer: ArrayBuffer,
+  pdfData: Uint8Array | ArrayBuffer,
   pageNum: number,
   scale: number = 2.0
 ): Promise<OcrResult> {
   const canvas = document.createElement('canvas');
-  await renderPageToCanvas(arrayBuffer, pageNum, canvas, scale);
+  await renderPageToCanvas(pdfData, pageNum, canvas, scale);
 
   const worker = await getOcrWorker();
   const result = await worker.recognize(canvas);
 
-  // 安全访问words数据（tesseract.js不同版本API差异）
-  const data = result.data as unknown as {
+  const ocrData = result.data as unknown as {
     text: string;
     words?: Array<{
       text: string;
@@ -43,7 +42,7 @@ export async function ocrPdfPage(
     }>;
   };
 
-  const words: OcrWord[] = (data.words || []).map((w) => ({
+  const words: OcrWord[] = (ocrData.words || []).map((w) => ({
     text: w.text,
     confidence: w.confidence / 100,
     bbox: {
@@ -55,21 +54,21 @@ export async function ocrPdfPage(
   }));
 
   return {
-    text: data.text,
+    text: ocrData.text,
     words,
   };
 }
 
 // OCR识别整个PDF
 export async function ocrFullPdf(
-  arrayBuffer: ArrayBuffer,
+  pdfData: Uint8Array | ArrayBuffer,
   pageCount: number,
   onProgress?: (page: number, total: number) => void
 ): Promise<OcrResult[]> {
   const results: OcrResult[] = [];
   for (let i = 1; i <= pageCount; i++) {
     onProgress?.(i, pageCount);
-    const result = await ocrPdfPage(arrayBuffer, i);
+    const result = await ocrPdfPage(pdfData, i);
     results.push(result);
   }
   return results;

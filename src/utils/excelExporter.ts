@@ -202,7 +202,7 @@ export function downloadExcel(buffer: ArrayBuffer, fileName: string = '船舶证
 }
 
 // 下载PDF文件
-export function downloadPdf(buffer: ArrayBuffer, fileName: string = 'Merged_Ship_Certificates.pdf'): void {
+export function downloadPdf(buffer: Uint8Array | ArrayBuffer, fileName: string = 'Merged_Ship_Certificates.pdf'): void {
   const blob = new Blob([buffer], { type: 'application/pdf' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

@@ -3,9 +3,9 @@ import { RecognizedDate, SubCertificate, CERT_MERGE_ORDER, CertType } from '@/ty
 
 // 在PDF上绘制红色标注框
 export async function annotatePdf(
-  pdfBytes: ArrayBuffer,
+  pdfBytes: Uint8Array | ArrayBuffer,
   dates: RecognizedDate[]
-): Promise<ArrayBuffer> {
+): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(pdfBytes);
   const pages = pdfDoc.getPages();
 
@@ -48,16 +48,16 @@ function getCertTypeOrder(certType: CertType): number {
 // 按证书类型顺序合并PDF（支持多证书PDF的子证书分割）
 export async function mergePdfsByCertType(
   files: Array<{
-    bytes: ArrayBuffer;
+    bytes: Uint8Array;
     certType: CertType;
     subCertificates?: SubCertificate[];
   }>
-): Promise<ArrayBuffer> {
+): Promise<Uint8Array> {
   const mergedPdf = await PDFDocument.create();
 
   // 收集所有合并条目
   interface MergeItem {
-    bytes: ArrayBuffer;
+    bytes: Uint8Array;
     order: number;
     startIndex?: number;
     endIndex?: number;

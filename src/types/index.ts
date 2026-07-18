@@ -32,8 +32,8 @@ export interface CertFile {
   fileSize: number;
   certType: CertType;
   certNumber: string; // 证书编号
-  pdfBytes: ArrayBuffer;
-  annotatedPdfBytes: ArrayBuffer | null;
+  pdfBytes: Uint8Array;
+  annotatedPdfBytes: Uint8Array | null;
   dates: RecognizedDate[];
   status: 'pending' | 'processing' | 'done' | 'error';
   isImageBased: boolean;

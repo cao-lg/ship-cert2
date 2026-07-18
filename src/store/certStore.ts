@@ -31,7 +31,7 @@ export const useCertStore = create<CertStore>((set, get) => ({
       fileSize: file.size,
       certType: 'UNKNOWN',
       certNumber: '',
-      pdfBytes: arrayBuffer,
+      pdfBytes: new Uint8Array(arrayBuffer),
       annotatedPdfBytes: null,
       dates: [],
       status: 'pending',

@@ -55,7 +55,7 @@ export async function processCertFile(
 
     // 4. 标注PDF
     onProgress?.('标注PDF...', 0.8);
-    let annotatedPdfBytes: ArrayBuffer | null = null;
+    let annotatedPdfBytes: Uint8Array | null = null;
     const allDates = subCertificates
       ? subCertificates.flatMap((s) => s.dates)
       : dates;

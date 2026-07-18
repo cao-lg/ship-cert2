@@ -15,8 +15,9 @@ export interface ParseResult {
 }
 
 // 解析PDF文本内容
-export async function parsePdf(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+export async function parsePdf(data: Uint8Array | ArrayBuffer): Promise<ParseResult> {
+  const buffer = new Uint8Array(data).slice().buffer;
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
   const pageCount = pdf.numPages;
   const allTextItems: TextItem[] = [];
   let fullText = '';
@@ -68,12 +69,13 @@ export async function parsePdf(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
 
 // 渲染PDF页面到Canvas
 export async function renderPageToCanvas(
-  arrayBuffer: ArrayBuffer,
+  data: Uint8Array | ArrayBuffer,
   pageNum: number,
   canvas: HTMLCanvasElement,
   scale: number = 1.5
 ): Promise<void> {
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const buffer = new Uint8Array(data).slice().buffer;
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
   const page = await pdf.getPage(pageNum);
   const viewport = page.getViewport({ scale });
 
@@ -85,8 +87,9 @@ export async function renderPageToCanvas(
 }
 
 // 获取PDF页数
-export async function getPdfPageCount(arrayBuffer: ArrayBuffer): Promise<number> {
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+export async function getPdfPageCount(data: Uint8Array | ArrayBuffer): Promise<number> {
+  const buffer = new Uint8Array(data).slice().buffer;
+  const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
   return pdf.numPages;
 }
 
