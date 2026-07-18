@@ -3,26 +3,29 @@ import { OcrResult } from './ocr';
 // 日期格式正则
 const DATE_PATTERNS = [
   // DD Month YYYY (e.g., 15 January 2024)
-  /(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i,
+  /(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[\.,]?\s+(\d{4})/i,
   // DD/MM/YYYY or DD.MM.YYYY or DD-MM-YYYY
   /(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{4})/,
   // YYYY-MM-DD
   /(\d{4})-(\d{1,2})-(\d{1,2})/,
   // Month DD, YYYY (e.g., January 15, 2024)
-  /(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})/i,
+  /(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s+(\d{4})/i,
 ];
 
 const MONTH_MAP: Record<string, string> = {
   january: '01', february: '02', march: '03', april: '04',
   may: '05', june: '06', july: '07', august: '08',
   september: '09', october: '10', november: '11', december: '12',
+  jan: '01', feb: '02', mar: '03', apr: '04',
+  jun: '06', jul: '07', aug: '08', sep: '09',
+  oct: '10', nov: '11', dec: '12',
 };
 
 function parseDateFromMatch(match: RegExpMatchArray): string | null {
   const full = match[0];
 
   // Try DD Month YYYY
-  const m1 = full.match(/(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i);
+  const m1 = full.match(/(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[\.,]?\s+(\d{4})/i);
   if (m1) {
     const day = m1[1].padStart(2, '0');
     const month = MONTH_MAP[m1[2].toLowerCase()];
@@ -31,7 +34,7 @@ function parseDateFromMatch(match: RegExpMatchArray): string | null {
   }
 
   // Try Month DD, YYYY
-  const m2 = full.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})/i);
+  const m2 = full.match(/(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s+(\d{4})/i);
   if (m2) {
     const month = MONTH_MAP[m2[1].toLowerCase()];
     const day = m2[2].padStart(2, '0');
@@ -72,7 +75,7 @@ export function recognizeDatesFromText(
       // 在全文中搜索关键词+日期的组合
       const keywordPattern = keyword.replace(/\s+/g, '\\s+');
       const regex = new RegExp(
-        `${keywordPattern}[^\\d]{0,30}(\\d{1,2}[\\s\\/\\-\\.]\\d{1,2}[\\s\\/\\-\\.]\\d{2,4}|\\d{1,2}\\s+\\w{3,9}\\s+\\d{2,4}|\\d{4}-\\d{1,2}-\\d{1,2}|\\w{3,9}\\s+\\d{1,2},?\\s+\\d{4})`,
+        `${keywordPattern}[^\\d]{0,30}(\\d{1,2}[\\s\\/\\-\\.]\\d{1,2}[\\s\\/\\-\\.]\\d{2,4}|\\d{1,2}\\s+\\w{3,9}[\\.,]?\\s+\\d{2,4}|\\d{4}-\\d{1,2}-\\d{1,2}|\\w{3,9}\\s+\\d{1,2},?\\s+\\d{4})`,
         'gi'
       );
 
@@ -133,7 +136,7 @@ export function recognizeDatesFromOcr(
       for (const keyword of info.keywords) {
         const keywordPattern = keyword.replace(/\s+/g, '\\s+');
         const regex = new RegExp(
-          `${keywordPattern}[^\\d]{0,30}(\\d{1,2}[\\s\\/\\-\\.]\\d{1,2}[\\s\\/\\-\\.]\\d{2,4}|\\d{1,2}\\s+\\w{3,9}\\s+\\d{2,4}|\\d{4}-\\d{1,2}-\\d{1,2}|\\w{3,9}\\s+\\d{1,2},?\\s+\\d{4})`,
+          `${keywordPattern}[^\\d]{0,30}(\\d{1,2}[\\s\\/\\-\\.]\\d{1,2}[\\s\\/\\-\\.]\\d{2,4}|\\d{1,2}\\s+\\w{3,9}[\\.,]?\\s+\\d{2,4}|\\d{4}-\\d{1,2}-\\d{1,2}|\\w{3,9}\\s+\\d{1,2},?\\s+\\d{4})`,
           'gi'
         );
 
@@ -142,19 +145,43 @@ export function recognizeDatesFromOcr(
           const dateStr = parseDateFromMatch(match);
           if (!dateStr) continue;
 
-          // 在OCR words中查找位置
           const position = findOcrDatePosition(ocrResult, match[0]);
-          // 只有找到位置才添加日期，避免默认值导致框在错误位置
-          if (position) {
-            dates.push({
-              type: dateType as DateType,
-              date: dateStr,
-              confidence: 0.7,
-              page: pageNum,
-              position,
-              rawText: match[0],
-            });
-          }
+          dates.push({
+            type: dateType as DateType,
+            date: dateStr,
+            confidence: position ? 0.7 : 0.5,
+            page: pageNum,
+            position: position || { x: 0, y: 0, width: 100, height: 20 },
+            rawText: match[0],
+          });
+        }
+      }
+    }
+
+    // 额外：提取任何独立的日期（没有关键词前缀的情况）
+    const standalonePatterns = [
+      /(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[\.,]?\s+(\d{4})/gi,
+      /(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s+(\d{4})/gi,
+      /(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{4})/g,
+      /(\d{4})-(\d{1,2})-(\d{1,2})/g,
+    ];
+
+    for (const pattern of standalonePatterns) {
+      let match;
+      while ((match = pattern.exec(ocrResult.text)) !== null) {
+        const dateStr = parseDateFromMatch(match);
+        if (!dateStr) continue;
+
+        const position = findOcrDatePosition(ocrResult, match[0]);
+        if (position) {
+          dates.push({
+            type: 'EXPIRY' as DateType,
+            date: dateStr,
+            confidence: 0.4,
+            page: pageNum,
+            position,
+            rawText: match[0],
+          });
         }
       }
     }
@@ -171,7 +198,7 @@ function findDatePosition(
   const normalized = matchedText.toLowerCase().trim();
 
   // 从matchedText中提取日期字符串（如 "19 March 2026", "18/09/2026" 等）
-  const dateMatch = normalized.match(/(\d{1,2}\s+\w{3,9}\s+\d{2,4}|\d{1,2}[\/\.\-]\d{1,2}[\/\.\-]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|\w{3,9}\s+\d{1,2},?\s+\d{4})/);
+  const dateMatch = normalized.match(/(\d{1,2}\s+\w{3,9}[\.,]?\s+\d{2,4}|\d{1,2}[\/\.\-]\d{1,2}[\/\.\-]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|\w{3,9}\s+\d{1,2},?\s+\d{4})/);
 
   // 策略1：直接查找包含日期数字的textItem（最可靠）
   if (dateMatch) {
@@ -309,67 +336,137 @@ function findOcrDatePosition(
 ): { x: number; y: number; width: number; height: number } | null {
   const normalized = matchedText.toLowerCase().trim();
 
-  // 提取日期中的年份
-  const yearMatch = normalized.match(/(20\d{2}|19\d{2})/);
-  if (!yearMatch) return null;
-  const targetYear = yearMatch[1];
-
-  // 找到所有包含目标年份的word
-  const yearWords = ocrResult.words.filter((w) => w.text.includes(targetYear));
-  if (yearWords.length === 0) return null;
-
-  // 按y坐标从大到小排序（y大的在上面，PDF坐标系）
-  yearWords.sort((a, b) => b.bbox.y0 - a.bbox.y0);
-
-  // 提取月份名称列表
-  const months = [
-    'january', 'february', 'march', 'april', 'may', 'june',
-    'july', 'august', 'september', 'october', 'november', 'december',
-    'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
-  ];
-
-  // 遍历每个年份word，找同一行是否有月份
-  for (const yearWord of yearWords) {
-    // 找同一行的word（y坐标相近）
-    const sameLine = ocrResult.words.filter(
-      (w) => Math.abs(w.bbox.y0 - yearWord.bbox.y0) < 20 || Math.abs(w.bbox.y1 - yearWord.bbox.y1) < 20
-    );
-    sameLine.sort((a, b) => a.bbox.x0 - b.bbox.x0);
-
-    // 检查这一行是否有月份名称
-    const lineText = sameLine.map((w) => w.text).join(' ').toLowerCase();
-    const hasMonth = months.some((m) => lineText.includes(m));
-
-    if (hasMonth || sameLine.length >= 2) {
-      // 找到包含年份和月份的行 → 大概率是日期行
-      // 找到yearWord在行中的位置
-      const idx = sameLine.indexOf(yearWord);
-      // 取年份左边2-3个word（包含月份和日期）
-      const startIdx = Math.max(0, idx - 3);
-      const endIdx = Math.min(sameLine.length - 1, idx + 1);
-      const dateWords = sameLine.slice(startIdx, endIdx + 1);
-
-      if (dateWords.length > 0) {
-        const xs = dateWords.map((w) => w.bbox.x0);
-        const xEnds = dateWords.map((w) => w.bbox.x1);
+  // 策略1：直接匹配word文本（最可靠）
+  // 从matchedText中提取日期部分
+  const dateMatch = normalized.match(/(\d{1,2}\s+\w{3,9}[\.,]?\s+\d{2,4}|\d{1,2}[\/\.\-]\d{1,2}[\/\.\-]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|\w{3,9}\s+\d{1,2},?\s+\d{4})/);
+  
+  if (dateMatch) {
+    const dateStr = dateMatch[0].toLowerCase().trim();
+    
+    // 尝试完整匹配单个word
+    for (const w of ocrResult.words) {
+      const wordText = w.text.toLowerCase().trim();
+      if (wordText === dateStr || wordText.includes(dateStr)) {
         return {
-          x: Math.min(...xs) - 2,
-          y: yearWord.bbox.y0 - 2,
-          width: Math.max(...xEnds) - Math.min(...xs) + 4,
-          height: yearWord.bbox.y1 - yearWord.bbox.y0 + 4,
+          x: w.bbox.x0 - 2,
+          y: w.bbox.y0 - 2,
+          width: w.bbox.x1 - w.bbox.x0 + 4,
+          height: w.bbox.y1 - w.bbox.y0 + 4,
         };
+      }
+    }
+    
+    // 尝试部分匹配：日期被拆分成多个words
+    const dateParts = dateStr.split(/[\s,\/\-\.]+/).filter((p) => p.length > 0);
+    if (dateParts.length >= 2) {
+      // 找包含年份的word作为锚点
+      const yearMatch = dateParts.find((p) => /^(20|19)\d{2}$/.test(p));
+      if (yearMatch) {
+        const yearWords = ocrResult.words.filter((w) => w.text.includes(yearMatch));
+        for (const yearWord of yearWords) {
+          // 找同一行的word
+          const sameLine = ocrResult.words.filter(
+            (w) => Math.abs(w.bbox.y0 - yearWord.bbox.y0) < 25 || Math.abs(w.bbox.y1 - yearWord.bbox.y1) < 25
+          );
+          sameLine.sort((a, b) => a.bbox.x0 - b.bbox.x0);
+          
+          // 检查这一行是否包含足够的日期部分
+          const lineText = sameLine.map((w) => w.text.toLowerCase()).join(' ');
+          let matchCount = 0;
+          for (const part of dateParts) {
+            if (lineText.includes(part)) matchCount++;
+          }
+          
+          if (matchCount >= Math.min(dateParts.length, 2)) {
+            // 找到日期所在行，计算整体bbox
+            const dateWords: typeof ocrResult.words = [];
+            for (const w of sameLine) {
+              const wordText = w.text.toLowerCase();
+              for (const part of dateParts) {
+                if (wordText.includes(part) || part.includes(wordText)) {
+                  if (!dateWords.includes(w)) {
+                    dateWords.push(w);
+                  }
+                  break;
+                }
+              }
+            }
+            
+            if (dateWords.length > 0) {
+              const xs = dateWords.map((w) => w.bbox.x0);
+              const xEnds = dateWords.map((w) => w.bbox.x1);
+              const ys = dateWords.map((w) => w.bbox.y0);
+              const yEnds = dateWords.map((w) => w.bbox.y1);
+              return {
+                x: Math.min(...xs) - 2,
+                y: Math.min(...ys) - 2,
+                width: Math.max(...xEnds) - Math.min(...xs) + 4,
+                height: Math.max(...yEnds) - Math.min(...ys) + 4,
+              };
+            }
+          }
+        }
       }
     }
   }
 
-  // 回退：取最靠上的年份word，向左右扩展
-  const topYearWord = yearWords[0];
-  return {
-    x: topYearWord.bbox.x0 - 60,
-    y: topYearWord.bbox.y0 - 2,
-    width: topYearWord.bbox.x1 - topYearWord.bbox.x0 + 120,
-    height: topYearWord.bbox.y1 - topYearWord.bbox.y0 + 4,
-  };
+  // 策略2：基于年份查找
+  const yearMatch2 = normalized.match(/(20\d{2}|19\d{2})/);
+  if (yearMatch2) {
+    const targetYear = yearMatch2[1];
+    const yearWords = ocrResult.words.filter((w) => w.text.includes(targetYear));
+    if (yearWords.length > 0) {
+      yearWords.sort((a, b) => b.bbox.y0 - a.bbox.y0);
+      
+      const months = [
+        'january', 'february', 'march', 'april', 'may', 'june',
+        'july', 'august', 'september', 'october', 'november', 'december',
+        'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+      ];
+
+      for (const yearWord of yearWords) {
+        const sameLine = ocrResult.words.filter(
+          (w) => Math.abs(w.bbox.y0 - yearWord.bbox.y0) < 25 || Math.abs(w.bbox.y1 - yearWord.bbox.y1) < 25
+        );
+        sameLine.sort((a, b) => a.bbox.x0 - b.bbox.x0);
+
+        const lineText = sameLine.map((w) => w.text).join(' ').toLowerCase();
+        const hasMonth = months.some((m) => lineText.includes(m));
+        const hasDay = sameLine.some((w) => /^\d{1,2}$/.test(w.text.trim()));
+
+        if (hasMonth || (hasDay && sameLine.length >= 2)) {
+          const idx = sameLine.indexOf(yearWord);
+          const startIdx = Math.max(0, idx - 3);
+          const endIdx = Math.min(sameLine.length - 1, idx + 1);
+          const dateWords = sameLine.slice(startIdx, endIdx + 1);
+
+          if (dateWords.length > 0) {
+            const xs = dateWords.map((w) => w.bbox.x0);
+            const xEnds = dateWords.map((w) => w.bbox.x1);
+            const ys = dateWords.map((w) => w.bbox.y0);
+            const yEnds = dateWords.map((w) => w.bbox.y1);
+            return {
+              x: Math.min(...xs) - 2,
+              y: Math.min(...ys) - 2,
+              width: Math.max(...xEnds) - Math.min(...xs) + 4,
+              height: Math.max(...yEnds) - Math.min(...ys) + 4,
+            };
+          }
+        }
+      }
+
+      // 回退：只取年份word的位置，向左右扩展
+      const topYearWord = yearWords[0];
+      return {
+        x: topYearWord.bbox.x0 - 80,
+        y: topYearWord.bbox.y0 - 2,
+        width: topYearWord.bbox.x1 - topYearWord.bbox.x0 + 160,
+        height: topYearWord.bbox.y1 - topYearWord.bbox.y0 + 4,
+      };
+    }
+  }
+
+  return null;
 }
 
 // 去重

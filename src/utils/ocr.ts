@@ -25,7 +25,7 @@ export interface OcrResult {
 export async function ocrPdfPage(
   pdfData: Uint8Array | ArrayBuffer,
   pageNum: number,
-  scale: number = 2.0
+  scale: number = 3.0
 ): Promise<OcrResult> {
   const canvas = document.createElement('canvas');
   await renderPageToCanvas(pdfData, pageNum, canvas, scale);
@@ -49,16 +49,14 @@ export async function ocrPdfPage(
     }>;
   };
 
-  // 使用lines数据（比words更可靠，有明确的行结构）
   const words: OcrWord[] = [];
 
   if (ocrData.lines && ocrData.lines.length > 0) {
     for (const line of ocrData.lines) {
       const lineY0 = line.bbox.y0 / scale;
       const lineY1 = line.bbox.y1 / scale;
-      const lineHeight = lineY1 - lineY0;
-      const lineBottom = pageHeight - lineY1; // PDF坐标：行底部
-      const lineTop = pageHeight - lineY0; // PDF坐标：行顶部
+      const lineBottom = pageHeight - lineY1;
+      const lineTop = pageHeight - lineY0;
 
       if (line.words && line.words.length > 0) {
         for (const w of line.words) {
@@ -69,14 +67,13 @@ export async function ocrPdfPage(
             confidence: w.confidence ? w.confidence / 100 : (line.confidence || 0) / 100,
             bbox: {
               x0,
-              y0: lineBottom,  // 行底部
+              y0: lineBottom,
               x1,
-              y1: lineTop,     // 行顶部
+              y1: lineTop,
             },
           });
         }
       } else {
-        // 如果行没有words，就把整行作为一个word
         const x0 = line.bbox.x0 / scale;
         const x1 = line.bbox.x1 / scale;
         words.push({
@@ -92,7 +89,6 @@ export async function ocrPdfPage(
       }
     }
   } else if (ocrData.words) {
-    // 回退到words
     for (const w of ocrData.words) {
       const x0 = w.bbox.x0 / scale;
       const y0 = w.bbox.y0 / scale;
@@ -103,9 +99,9 @@ export async function ocrPdfPage(
         confidence: w.confidence / 100,
         bbox: {
           x0,
-          y0: pageHeight - y1,  // 底部
+          y0: pageHeight - y1,
           x1,
-          y1: pageHeight - y0,  // 顶部
+          y1: pageHeight - y0,
         },
       });
     }

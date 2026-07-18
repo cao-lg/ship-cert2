@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-18 18:10:00 UTC';
+export const BUILD_TIMESTAMP = '2026-07-18 19:30:00 UTC';
 
 export interface ChangelogEntry {
   version: string;
@@ -10,6 +10,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v1.7.0',
+    date: '2026-07-18',
+    changes: [
+      '修复OCR日期识别不显示的问题：即使找不到位置也保留日期信息',
+      '优化OCR日期位置查找：增加直接匹配、部分匹配、年份匹配三级策略',
+      '提升OCR识别精度：渲染scale从2.0提升到3.0，优化Tesseract参数',
+      '支持更多日期格式：月份缩写（Jan/Feb/Mar等）、带点号的月份格式',
+      '增加OCR独立日期提取：没有关键词前缀的日期也能识别',
+    ],
+  },
   {
     version: 'v1.6.0',
     date: '2026-07-18',
