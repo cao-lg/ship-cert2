@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-18 19:30:00 UTC';
+export const BUILD_TIMESTAMP = '2026-07-19 03:30:00 北京时间';
 
 export interface ChangelogEntry {
   version: string;
