@@ -1,13 +1,15 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, FileText, X, Ship, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Upload, FileText, X, Ship, AlertCircle, CheckCircle2, Loader2, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { useCertStore } from '@/store/certStore';
 import { processCertFile } from '@/utils/processor';
 import { CertType, CERT_TYPE_INFO, CertFile } from '@/types';
+import { CHANGELOG, BUILD_TIMESTAMP } from '@/config/changelog';
 
 export default function UploadPage() {
   const { files, addFile, removeFile, updateFile, setCertType } = useCertStore();
   const navigate = useNavigate();
+  const [showChangelog, setShowChangelog] = useState(false);
 
   const handleFiles = useCallback(async (fileList: FileList) => {
     const pdfFiles = Array.from(fileList).filter((f) => f.type === 'application/pdf' || f.name.endsWith('.pdf'));
@@ -187,6 +189,42 @@ export default function UploadPage() {
             <p className="text-sm">支持的证书类型：REG / MM / LL / SC / ISSC / IOPP / TON / SMC / CLC / DOC / COF / SE / SR</p>
           </div>
         )}
+
+        {/* 更新日志 */}
+        <div className="mt-8 mb-12">
+          <button
+            onClick={() => setShowChangelog(!showChangelog)}
+            className="flex items-center gap-2 text-sm text-gray-500 hover:text-[#1B6CA8] transition-colors mx-auto"
+          >
+            <Clock className="w-4 h-4" />
+            <span>构建时间: {BUILD_TIMESTAMP}</span>
+            {showChangelog ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+
+          {showChangelog && (
+            <div className="max-w-2xl mx-auto mt-4 bg-white rounded-lg shadow-sm border border-gray-100 p-6">
+              <h3 className="text-base font-semibold text-[#0F2B46] mb-4">更新日志</h3>
+              <div className="space-y-4">
+                {CHANGELOG.map((entry) => (
+                  <div key={entry.version} className="border-l-2 border-[#1B6CA8]/30 pl-4">
+                    <div className="flex items-center gap-3 mb-1">
+                      <span className="text-sm font-semibold text-[#1B6CA8]">{entry.version}</span>
+                      <span className="text-xs text-gray-400">{entry.date}</span>
+                    </div>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      {entry.changes.map((change, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <span className="text-[#1B6CA8] mt-0.5">•</span>
+                          <span>{change}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

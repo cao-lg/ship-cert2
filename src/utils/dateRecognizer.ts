@@ -167,43 +167,107 @@ function findDatePosition(
 ): { page: number; position: { x: number; y: number; width: number; height: number } } | null {
   const normalized = matchedText.toLowerCase().trim();
 
-  for (const item of textItems) {
-    if (normalized.includes(item.text.toLowerCase().trim()) && item.text.trim().length > 2) {
+  // 策略1：查找包含日期数字的关键item（最可靠）
+  // 从matchedText中提取日期相关的关键词和数字
+  const dateTokens = normalized.split(/[\s:,]+/).filter((t) => t.length > 0);
+
+  // 找到所有与matchedText中token匹配的textItems
+  const matchedItems: Array<{ item: TextItem; tokenIdx: number }> = [];
+  for (let tokenIdx = 0; tokenIdx < dateTokens.length; tokenIdx++) {
+    const token = dateTokens[tokenIdx];
+    if (token.length < 2) continue;
+    for (const item of textItems) {
+      const itemText = item.text.toLowerCase().trim();
+      if (itemText === token || (itemText.length > 2 && (itemText.includes(token) || token.includes(itemText)))) {
+        matchedItems.push({ item, tokenIdx });
+      }
+    }
+  }
+
+  if (matchedItems.length > 0) {
+    // 找到连续匹配的item组
+    matchedItems.sort((a, b) => {
+      if (a.item.page !== b.item.page) return a.item.page - b.item.page;
+      return a.item.y - b.item.y;
+    });
+
+    // 取第一组匹配的items计算包围框
+    const firstPage = matchedItems[0].item.page;
+    const samePageItems = matchedItems.filter((m) => m.item.page === firstPage);
+
+    if (samePageItems.length > 0) {
+      const xs = samePageItems.map((m) => m.item.x);
+      const ys = samePageItems.map((m) => m.item.y);
+      const xEnds = samePageItems.map((m) => m.item.x + m.item.width);
+      const yEnds = samePageItems.map((m) => m.item.y + m.item.height);
+
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xEnds);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...yEnds);
+
       return {
-        page: item.page,
+        page: firstPage,
         position: {
-          x: item.x - 2,
-          y: item.y - 2,
-          width: item.width + 4,
-          height: item.height + 4,
+          x: minX - 2,
+          y: minY - 2,
+          width: maxX - minX + 4,
+          height: maxY - minY + 4,
         },
       };
     }
   }
 
-  // 尝试通过连续item组合查找
-  const matchWords = normalized.split(/\s+/);
-  for (let i = 0; i < textItems.length; i++) {
-    let combined = '';
-    let startX = textItems[i].x;
-    let startY = textItems[i].y;
-    let endX = textItems[i].x + textItems[i].width;
-    let maxHeight = textItems[i].height;
-    let page = textItems[i].page;
+  // 策略2：按行组合查找
+  // 将textItems按行分组（y坐标相近的为一行）
+  const pageGroups: Record<number, TextItem[]> = {};
+  for (const item of textItems) {
+    if (!pageGroups[item.page]) pageGroups[item.page] = [];
+    pageGroups[item.page].push(item);
+  }
 
-    for (let j = i; j < Math.min(i + 10, textItems.length); j++) {
-      combined += textItems[j].text.toLowerCase() + ' ';
-      endX = textItems[j].x + textItems[j].width;
-      maxHeight = Math.max(maxHeight, textItems[j].height);
+  for (const [pageStr, items] of Object.entries(pageGroups)) {
+    const page = parseInt(pageStr);
+    // 按y坐标排序
+    const sorted = [...items].sort((a, b) => b.y - a.y || a.x - b.x);
 
-      if (combined.trim().length > normalized.length * 0.5 && normalized.includes(combined.trim())) {
+    // 分行
+    const lines: TextItem[][] = [];
+    let currentLine: TextItem[] = [];
+    let currentY: number | null = null;
+
+    for (const item of sorted) {
+      if (currentY === null || Math.abs(item.y - currentY) < 5) {
+        currentLine.push(item);
+        currentY = item.y;
+      } else {
+        if (currentLine.length > 0) lines.push(currentLine);
+        currentLine = [item];
+        currentY = item.y;
+      }
+    }
+    if (currentLine.length > 0) lines.push(currentLine);
+
+    // 对每行，按x坐标排序后拼接文本
+    for (const line of lines) {
+      line.sort((a, b) => a.x - b.x);
+      const lineText = line.map((i) => i.text).join(' ').toLowerCase().replace(/\s+/g, ' ').trim();
+      const lineNormalized = normalized.replace(/\s+/g, ' ').trim();
+
+      // 检查行文本是否包含matchedText的关键部分
+      if (lineText.includes(lineNormalized) || lineNormalized.includes(lineText)) {
+        const xs = line.map((i) => i.x);
+        const xEnds = line.map((i) => i.x + i.width);
+        const ys = line.map((i) => i.y);
+        const yEnds = line.map((i) => i.y + i.height);
+
         return {
           page,
           position: {
-            x: startX - 2,
-            y: startY - 2,
-            width: endX - startX + 4,
-            height: maxHeight + 4,
+            x: Math.min(...xs) - 2,
+            y: Math.min(...ys) - 2,
+            width: Math.max(...xEnds) - Math.min(...xs) + 4,
+            height: Math.max(...yEnds) - Math.min(...ys) + 4,
           },
         };
       }
