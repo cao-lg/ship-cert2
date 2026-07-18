@@ -60,10 +60,13 @@ export async function processCertFile(
       ? subCertificates.flatMap((s) => s.dates)
       : dates;
     if (allDates.length > 0) {
-      if (parseResult.isImageBased) {
-        annotatedPdfBytes = await annotateImagePdf(file.pdfBytes, allDates, ocrScale);
-      } else {
-        annotatedPdfBytes = await annotatePdf(file.pdfBytes, allDates);
+      const datesToAnnotate = allDates.filter(d => d.type === 'EXPIRY' || d.type === 'ANNUAL_SURVEY');
+      if (datesToAnnotate.length > 0) {
+        if (parseResult.isImageBased) {
+          annotatedPdfBytes = await annotateImagePdf(file.pdfBytes, datesToAnnotate, ocrScale);
+        } else {
+          annotatedPdfBytes = await annotatePdf(file.pdfBytes, datesToAnnotate);
+        }
       }
     }
 

@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-19 03:40:00 北京时间';
+export const BUILD_TIMESTAMP = '2026-07-19 04:00:00 北京时间';
 
 export interface ChangelogEntry {
   version: string;
@@ -11,14 +11,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: 'v3.3.0',
+    version: 'v3.4.0',
     date: '2026-07-19',
     changes: [
-      '框放大3倍：padding从3增加到10，红色标注框更醒目',
-      '重构日期类型识别逻辑：以日期为中心，向周围找最强关键词匹配',
-      '关键词加权评分：长关键词权重高、同行优先、关键词在日期前优先',
-      '修复签发日期和有效日期搞反的问题',
-      '窗口扩大到±15行，确保远距离关键词也能匹配到',
+      '优化标注策略：只标注有效期(EXPIRY)和年检日期(ANNUAL_SURVEY)，签发日期不画框，避免框重叠',
+      '提高OCR分辨率：scale从3提高到5，细节更清晰',
+      '添加对比度增强预处理：对比度1.3倍，提高模糊文字的识别率',
     ],
   },
   {

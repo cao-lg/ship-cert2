@@ -25,7 +25,7 @@ export interface OcrResult {
 export async function ocrPdfPage(
   pdfData: Uint8Array | ArrayBuffer,
   pageNum: number,
-  scale: number = 3.0
+  scale: number = 5.0
 ): Promise<OcrResult> {
   const canvas = document.createElement('canvas');
   
@@ -44,7 +44,11 @@ export async function ocrPdfPage(
     const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const d = img.data;
     for (let i = 0; i < d.length; i += 4) {
-      const g = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+      let g = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+      const contrast = 1.3;
+      const brightness = 0;
+      g = ((g - 128) * contrast + 128 + brightness);
+      g = Math.max(0, Math.min(255, g));
       d[i] = d[i + 1] = d[i + 2] = g;
     }
     ctx.putImageData(img, 0, 0);
