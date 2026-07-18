@@ -166,54 +166,61 @@ export function recognizeDatesFromUnified(
     allPageDates[page] = pageDates;
   }
 
-  const keyOf = (g: DateGroup) =>
-    `${Math.round(g.x0)}-${Math.round(g.yBot)}-${Math.round(g.x1)}-${Math.round(g.yTop)}`;
+  const WIN = 15;
 
-  for (const pageStr of Object.keys(allLines)) {
+  for (const pageStr of Object.keys(allPageDates)) {
     const page = parseInt(pageStr);
-    const lines = allLines[page];
     const pageDates = allPageDates[page] || [];
-    const used = new Set<string>();
+    const lines = allLines[page] || [];
 
-    for (let li = 0; li < lines.length; li++) {
-      const line = lines[li];
-      const n = normSp(line.text);
-      const lineY = line.items.reduce((s, i) => s + i.y, 0) / Math.max(1, line.items.length);
-
-      let matchedType: DateType | null = null;
-      let highestConf = 0;
+    for (const dg of pageDates) {
+      let bestType: DateType | null = null;
+      let bestScore = -Infinity;
 
       for (const [dateType, info] of Object.entries(DATE_TYPE_INFO)) {
         for (const keyword of info.keywords) {
-          if (n.includes(normSp(keyword))) {
-            if (baseConfidence > highestConf) {
-              highestConf = baseConfidence;
-              matchedType = dateType as DateType;
+          const kwNorm = normSp(keyword);
+          if (!kwNorm) continue;
+
+          for (let li = Math.max(0, dg.li - WIN); li <= Math.min(lines.length - 1, dg.li + WIN); li++) {
+            const line = lines[li];
+            const n = normSp(line.text);
+            if (!n.includes(kwNorm)) continue;
+
+            const lineY = line.items.reduce((s, i) => s + i.y, 0) / Math.max(1, line.items.length);
+            const dy = Math.abs(lineY - dg.lineY);
+            const dist = Math.abs(li - dg.li);
+
+            const kwWeight = Math.min(kwNorm.length / 10, 3);
+            const sameLineBonus = li === dg.li ? 5 : 0;
+            const afterBonus = li > dg.li ? 0 : -2;
+            const distPenalty = dist * 0.5;
+
+            const score = kwWeight + sameLineBonus + afterBonus - distPenalty - dy * 0.01;
+
+            if (score > bestScore) {
+              bestScore = score;
+              bestType = dateType as DateType;
             }
-            break;
           }
         }
       }
 
-      if (matchedType) {
-        const g = nearestDate(pageDates, li, lineY, used, keyOf);
-        if (g) {
-          used.add(keyOf(g));
-          const pad = 3;
-          dates.push({
-            type: matchedType,
-            date: g.iso,
-            confidence: highestConf,
-            page,
-            position: {
-              x: g.x0 - pad,
-              y: g.yBot - pad,
-              width: g.x1 - g.x0 + pad * 2,
-              height: g.yTop - g.yBot + pad * 2,
-            },
-            rawText: g.iso,
-          });
-        }
+      if (bestType && bestScore > 0) {
+        const pad = 10;
+        dates.push({
+          type: bestType,
+          date: dg.iso,
+          confidence: Math.min(0.95, baseConfidence + bestScore * 0.02),
+          page,
+          position: {
+            x: dg.x0 - pad,
+            y: dg.yBot - pad,
+            width: dg.x1 - dg.x0 + pad * 2,
+            height: dg.yTop - dg.yBot + pad * 2,
+          },
+          rawText: dg.iso,
+        });
       }
     }
   }

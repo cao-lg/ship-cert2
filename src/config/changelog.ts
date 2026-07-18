@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-19 03:15:00 北京时间';
+export const BUILD_TIMESTAMP = '2026-07-19 03:40:00 北京时间';
 
 export interface ChangelogEntry {
   version: string;
@@ -11,15 +11,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: 'v3.2.0',
+    version: 'v3.3.0',
     date: '2026-07-19',
     changes: [
-      '图片型PDF标注方案重构：参考用户提供的方案，直接在Canvas上画框',
-      '移除deviceToUser坐标转换，OCR设备坐标直接用，避免转换错误',
-      '图片型PDF调用annotateImagePdf：PDF→Canvas渲染→Canvas画框→PNG→PDF',
-      '文本型PDF保持原有用pdf-lib标注方案',
-      '修正OCR坐标处理：y=bbox.y0（设备空间左上角原点）',
-      '画框时乘以scale将设备坐标转为Canvas像素坐标',
+      '框放大3倍：padding从3增加到10，红色标注框更醒目',
+      '重构日期类型识别逻辑：以日期为中心，向周围找最强关键词匹配',
+      '关键词加权评分：长关键词权重高、同行优先、关键词在日期前优先',
+      '修复签发日期和有效日期搞反的问题',
+      '窗口扩大到±15行，确保远距离关键词也能匹配到',
     ],
   },
   {
