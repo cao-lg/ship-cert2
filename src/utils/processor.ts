@@ -63,7 +63,7 @@ export async function processCertFile(
       const datesToAnnotate = allDates.filter(d => d.type === 'EXPIRY' || d.type === 'ANNUAL_SURVEY');
       if (datesToAnnotate.length > 0) {
         if (parseResult.isImageBased) {
-          annotatedPdfBytes = await annotateImagePdf(file.pdfBytes, datesToAnnotate, ocrScale);
+          annotatedPdfBytes = await annotateImagePdf(file.pdfBytes, datesToAnnotate, 2.0);
         } else {
           annotatedPdfBytes = await annotatePdf(file.pdfBytes, datesToAnnotate);
         }

@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-19 04:00:00 北京时间';
+export const BUILD_TIMESTAMP = '2026-07-19 04:20:00 北京时间';
 
 export interface ChangelogEntry {
   version: string;
@@ -11,12 +11,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: 'v3.4.0',
+    version: 'v3.5.0',
     date: '2026-07-19',
     changes: [
-      '优化标注策略：只标注有效期(EXPIRY)和年检日期(ANNUAL_SURVEY)，签发日期不画框，避免框重叠',
-      '提高OCR分辨率：scale从3提高到5，细节更清晰',
-      '添加对比度增强预处理：对比度1.3倍，提高模糊文字的识别率',
+      'OCR识别与PDF导出分辨率分离',
+      'OCR识别用5倍分辨率：提高小字体识别率，日期识别更完整',
+      'PDF导出用2倍分辨率：保持文件大小适中，不影响标注清晰度',
+      '坐标系统一为PDF设备坐标（scale=1），导出时乘以对应scale',
     ],
   },
   {
