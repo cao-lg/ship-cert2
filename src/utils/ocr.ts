@@ -50,8 +50,19 @@ export async function ocrPdfPage(
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
   await page.render({ canvasContext: ctx, viewport }).promise;
+
+  // 灰度预处理：去色降噪，提高 OCR 识别准确率（参考完整解决方案代码.md 第4.3节）
+  try {
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = img.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const g = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+      d[i] = d[i + 1] = d[i + 2] = g;
+    }
+    ctx.putImageData(img, 0, 0);
+  } catch { /* 部分环境可能不支持 getImageData，忽略 */ }
 
   const worker = await getOcrWorker();
   const result = await worker.recognize(canvas, {}, { blocks: true });

@@ -168,7 +168,7 @@ export const CERT_TYPE_INFO: Record<CertType, {
 
 // 日期类型信息映射
 export const DATE_TYPE_INFO: Record<DateType, { label: string; labelEn: string; keywords: string[] }> = {
-  ISSUE: { label: '签发日期', labelEn: 'Date of Issue', keywords: ['Date of Issue', 'Issued at', 'Issued on', 'Date of Certificate', 'Issue Date', 'Issued', 'Issue', 'Issued Date', 'Certificate issued this', 'Certificate issued'] },
-  EXPIRY: { label: '有效日期', labelEn: 'Date of Expiry', keywords: ['Date of Expiry', 'Expiry', 'Valid Until', 'Valid To', 'Expiration', 'Expiring', 'this Certificate is valid until', 'Expiry Date', 'Expires', 'expires on', 'certificate expires', 'valid until the', 'Valid until'] },
-  ANNUAL_SURVEY: { label: '年检日期', labelEn: 'Annual Survey', keywords: ['Annual Survey', 'Intermediate Survey', 'Annual inspection', 'Annual Date'] },
+  ISSUE: { label: '签发日期', labelEn: 'Date of Issue', keywords: ['Date of Issue', 'Issued at', 'Issued on', 'Date of Certificate', 'Issue Date', 'Issued', 'Issue', 'Issued Date', 'Certificate issued this', 'Certificate issued', 'completion date of survey on which this certificate is based', 'issud', '发证日期', '签发日期'] },
+  EXPIRY: { label: '有效日期', labelEn: 'Date of Expiry', keywords: ['Date of Expiry', 'Expiry', 'Valid Until', 'Valid Till', 'Valid To', 'Expiration', 'Expiring', 'this Certificate is valid until', 'accepted as valid until', 'Expiry Date', 'Expires', 'expires on', 'certificate expires', 'valid until the', 'Valid until', '有效期至', '有效日期', '失效日期', '到期', '有效期限', '过期日期'] },
+  ANNUAL_SURVEY: { label: '年检日期', labelEn: 'Annual Survey', keywords: ['Annual Survey', 'Intermediate Survey', 'Annual inspection', 'Annual Date', 'annual and intermediate survey', '年度检验', '期间检验', '中间检验'] },
 };

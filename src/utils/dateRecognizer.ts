@@ -55,7 +55,9 @@ export function findDateGroups(
   items: Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }>
 ): Omit<DateGroup, 'li' | 'lineY'>[] {
   const groups: Omit<DateGroup, 'li' | 'lineY'>[] = [];
-  const sorted = [...items].sort((a, b) => a.y - b.y || a.x0 - b.x0);
+  // items 来自 buildLines 的 line.items，已按 x0 排序（从左到右）
+  // 不能再按 y 排序，否则会打乱同行内从左到右的顺序，导致滑动窗口组合不出日期
+  const sorted = [...items].sort((a, b) => a.x0 - b.x0);
 
   const tryPush = (arr: typeof items): boolean => {
     const combo = arr.map((i) => normToken(i.str)).join(' ');

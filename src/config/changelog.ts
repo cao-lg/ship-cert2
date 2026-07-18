@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-19 01:45:00 北京时间';
+export const BUILD_TIMESTAMP = '2026-07-19 02:30:00 北京时间';
 
 export interface ChangelogEntry {
   version: string;
@@ -11,15 +11,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: 'v3.0.0',
+    version: 'v3.1.0',
     date: '2026-07-19',
     changes: [
-      '重构日期识别核心算法：采用滑动窗口+就近关联方案',
-      '新增文本清洗：NFKC归一化、去不可见字符、日期标准化',
-      '滑动窗口找日期：1/3/5 token窗口直接在词上匹配，找到即有坐标',
-      '就近关联算法：±12行窗口内找最近日期，支持日期在关键词上方',
-      '彻底解决框位置不对问题：日期和坐标一步到位，无需二次查找',
-      '参考《完整解决方案代码.md》方案，业界验证的成熟实现',
+      '修复findDateGroups中重复排序bug：同行内按y重排会打乱x0顺序，导致滑动窗口组合不出日期',
+      '增加OCR灰度预处理：去色降噪，提高图片型PDF的OCR识别准确率',
+      '扩展日期关键词：参考完整解决方案文档，补充valid till、accepted as valid until、年度检验等',
+      '查阅pdf.js官方文档确认：transform[5]为基线坐标，height属性不可靠（改用|transform[3]|）',
+      '查阅pdf-lib官方文档确认：drawRectangle坐标系为左下角原点、Y轴向上',
     ],
   },
   {
