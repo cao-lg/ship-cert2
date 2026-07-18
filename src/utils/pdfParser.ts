@@ -28,6 +28,7 @@ export async function parsePdf(data: Uint8Array | ArrayBuffer): Promise<ParseRes
     const page = await pdf.getPage(pageNum);
     const viewport = page.getViewport({ scale: 1.0 });
     const textContent = await page.getTextContent();
+    const pageHeight = viewport.height;
 
     for (const item of textContent.items) {
       if (!('str' in item)) continue;
@@ -45,7 +46,7 @@ export async function parsePdf(data: Uint8Array | ArrayBuffer): Promise<ParseRes
       allTextItems.push({
         text: str,
         x: transform[4],
-        y: viewport.height - transform[5] - itemHeight,
+        y: transform[5],
         width: itemWidth,
         height: itemHeight,
         page: pageNum,

@@ -223,11 +223,13 @@ function findOcrDatePosition(
 
   for (const word of ocrResult.words) {
     if (matchWords.some((mw) => mw.includes(word.text.toLowerCase()) || word.text.toLowerCase().includes(mw))) {
+      const width = word.bbox.x1 - word.bbox.x0;
+      const height = word.bbox.y1 - word.bbox.y0;
       return {
         x: word.bbox.x0 - 2,
         y: word.bbox.y0 - 2,
-        width: word.bbox.x1 - word.bbox.x0 + 4,
-        height: word.bbox.y1 - word.bbox.y0 + 4,
+        width: width + 4,
+        height: height + 4,
       };
     }
   }

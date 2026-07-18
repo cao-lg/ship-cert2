@@ -17,10 +17,8 @@ export async function annotatePdf(
     const { height } = page.getSize();
     const pos = dateInfo.position;
 
-    // pdf-lib坐标系原点在左下角，需要转换Y坐标
-    // pdfjs-dist坐标系原点在左上角
     const x = pos.x;
-    const y = height - pos.y - pos.height;
+    const y = pos.y;
     const width = Math.max(pos.width, 20);
     const heightRect = Math.max(pos.height, 10);
 

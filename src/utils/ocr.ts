@@ -29,6 +29,7 @@ export async function ocrPdfPage(
 ): Promise<OcrResult> {
   const canvas = document.createElement('canvas');
   await renderPageToCanvas(pdfData, pageNum, canvas, scale);
+  const pageHeight = canvas.height / scale;
 
   const worker = await getOcrWorker();
   const result = await worker.recognize(canvas);
@@ -42,16 +43,23 @@ export async function ocrPdfPage(
     }>;
   };
 
-  const words: OcrWord[] = (ocrData.words || []).map((w) => ({
-    text: w.text,
-    confidence: w.confidence / 100,
-    bbox: {
-      x0: w.bbox.x0 / scale,
-      y0: w.bbox.y0 / scale,
-      x1: w.bbox.x1 / scale,
-      y1: w.bbox.y1 / scale,
-    },
-  }));
+  const words: OcrWord[] = (ocrData.words || []).map((w) => {
+    const x0 = w.bbox.x0 / scale;
+    const y0 = w.bbox.y0 / scale;
+    const x1 = w.bbox.x1 / scale;
+    const y1 = w.bbox.y1 / scale;
+    const height = y1 - y0;
+    return {
+      text: w.text,
+      confidence: w.confidence / 100,
+      bbox: {
+        x0,
+        y0: pageHeight - y1,
+        x1,
+        y1: pageHeight - y0,
+      },
+    };
+  });
 
   return {
     text: ocrData.text,
