@@ -85,12 +85,14 @@ export async function annotateImagePdf(
     await page.render({ canvasContext: ctx, viewport }).promise;
 
     const pageDates = datesByPage.get(pageNum) || [];
+    const pageHeight = viewport.height;
     for (const d of pageDates) {
       const pos = d.position;
       const x = pos.x * scale;
-      const y = pos.y * scale;
+      const yTop = (pos.y + pos.height) * scale;
       const w = pos.width * scale;
       const h = pos.height * scale;
+      const y = pageHeight - yTop;
       
       ctx.strokeStyle = 'red';
       ctx.lineWidth = 3;

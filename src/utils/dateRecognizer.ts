@@ -27,7 +27,7 @@ export interface LineItem {
 export function buildLines(
   items: Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }>
 ): { lines: LineItem[]; plainText: string } {
-  const sorted = [...items].sort((a, b) => a.y - b.y || a.x0 - b.x0);
+  const sorted = [...items].sort((a, b) => b.y - a.y || a.x0 - b.x0);
   const lines: LineItem[] = [];
   let cur: typeof items | null = null;
   let curY: number | null = null;
@@ -126,7 +126,7 @@ function ocrWordsToUnified(
   return words.map((w) => ({
     str: cleanInvisible(w.text),
     x0: w.bbox.x0,
-    y: w.bbox.y0,
+    y: w.bbox.y1,
     width: w.bbox.x1 - w.bbox.x0,
     height: w.bbox.y1 - w.bbox.y0,
     page,

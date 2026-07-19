@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-19 04:20:00 北京时间';
+export const BUILD_TIMESTAMP = '2026-07-19 04:50:00 北京时间';
 
 export interface ChangelogEntry {
   version: string;
@@ -11,13 +11,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: 'v3.5.0',
+    version: 'v3.6.0',
     date: '2026-07-19',
     changes: [
-      'OCR识别与PDF导出分辨率分离',
-      'OCR识别用5倍分辨率：提高小字体识别率，日期识别更完整',
-      'PDF导出用2倍分辨率：保持文件大小适中，不影响标注清晰度',
-      '坐标系统一为PDF设备坐标（scale=1），导出时乘以对应scale',
+      '彻底修复OCR标注框位置错误问题（自检发现并验证）',
+      '统一坐标系：OCR坐标在ocr.ts中转换为用户空间，与文本层一致',
+      '修复ocrWordsToUnified中y坐标定义：y=顶部y（用户空间值大），与textItemsToUnified一致',
+      '修复行排序方向：从上到下（y降序），符合阅读顺序，修复类型识别错误',
+      '修复annotateImagePdf：用户空间坐标→设备空间坐标→Canvas画框',
+      '自检验证：日期类型识别正确、y坐标正确',
     ],
   },
   {
