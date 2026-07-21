@@ -57,7 +57,13 @@ export function findDateGroups(
   items: Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }>
 ): Omit<DateGroup, 'li' | 'lineY'>[] {
   const groups: Omit<DateGroup, 'li' | 'lineY'>[] = [];
-  const sorted = [...items].sort((a, b) => a.x0 - b.x0);
+  const sorted = [...items].sort((a, b) => a.y - b.y || a.x0 - b.x0);
+
+  const isSameLine = (a: typeof items[0], b: typeof items[0]): boolean => {
+    const maxY = Math.max(a.y, b.y);
+    const minY = Math.min(a.y - a.height, b.y - b.height);
+    return maxY - minY < 20;
+  };
 
   const tryPush = (arr: typeof items): boolean => {
     const combo = arr.map((i) => normToken(i.str)).join(' ');
@@ -85,19 +91,19 @@ export function findDateGroups(
 
     let j = i + 1;
     while (j < sorted.length && sorted[j].str.trim() === '') j++;
-    if (j < sorted.length && tryPush([cur, sorted[j]])) { i = j + 1; continue; }
+    if (j < sorted.length && isSameLine(cur, sorted[j]) && tryPush([cur, sorted[j]])) { i = j + 1; continue; }
 
     let k = j + 1;
     while (k < sorted.length && sorted[k].str.trim() === '') k++;
-    if (k < sorted.length && tryPush([cur, sorted[j], sorted[k]])) { i = k + 1; continue; }
+    if (k < sorted.length && isSameLine(cur, sorted[k]) && tryPush([cur, sorted[j], sorted[k]])) { i = k + 1; continue; }
 
     let l = k + 1;
     while (l < sorted.length && sorted[l].str.trim() === '') l++;
-    if (l < sorted.length && tryPush([cur, sorted[j], sorted[k], sorted[l]])) { i = l + 1; continue; }
+    if (l < sorted.length && isSameLine(cur, sorted[l]) && tryPush([cur, sorted[j], sorted[k], sorted[l]])) { i = l + 1; continue; }
 
     let m = l + 1;
     while (m < sorted.length && sorted[m].str.trim() === '') m++;
-    if (m < sorted.length && tryPush([cur, sorted[j], sorted[k], sorted[l], sorted[m]])) { i = m + 1; continue; }
+    if (m < sorted.length && isSameLine(cur, sorted[m]) && tryPush([cur, sorted[j], sorted[k], sorted[l], sorted[m]])) { i = m + 1; continue; }
 
     i++;
   }
