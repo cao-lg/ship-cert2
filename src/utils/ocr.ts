@@ -1,5 +1,6 @@
 import { createWorker, Worker } from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist';
+import { logger } from './logger';
 
 let ocrWorker: Worker | null = null;
 
@@ -72,8 +73,6 @@ export async function ocrPdfPage(
     }>;
   };
 
-  // 设备空间 → 用户空间（PDF坐标系，左下角原点，Y轴向上）
-  // 对于未旋转页面：y_user = viewport_height - y_device
   const vpHeight = viewport.height;
   const userHeight = vpHeight / scale;
 
@@ -96,16 +95,12 @@ export async function ocrPdfPage(
                   const userY1 = (vpHeight - dy0) / scale;
 
                   if (userY1 < 0 || userY0 > userHeight + 100) {
-                    console.warn(`[OCR] 坐标异常，跳过: y0=${userY0.toFixed(2)}, y1=${userY1.toFixed(2)}, text="${w.text}"`);
+                    logger.warn(`[OCR] 坐标异常，跳过: y0=${userY0.toFixed(2)}, y1=${userY1.toFixed(2)}, text="${w.text}"`);
                     continue;
                   }
 
                   if (w.text.match(/\d{4}/) || w.text.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)$/i)) {
-                    console.log(`[OCR] 日期相关词: "${w.text}", deviceY=${dy0.toFixed(0)}-${dy1.toFixed(0)}, userY=${userY0.toFixed(2)}-${userY1.toFixed(2)}, x=${dx0.toFixed(2)}-${dx1.toFixed(2)}`);
-                  }
-                  
-                  if (userY0 > 380 && userY0 < 410) {
-                    console.log(`[OCR] 有效日期区域词: "${w.text}", x=${dx0.toFixed(2)}-${dx1.toFixed(2)}, y=${userY0.toFixed(2)}-${userY1.toFixed(2)}`);
+                    logger.debug(`[OCR] 日期相关词: "${w.text}", userY=${userY0.toFixed(2)}-${userY1.toFixed(2)}, x=${dx0.toFixed(2)}-${dx1.toFixed(2)}`);
                   }
                   
                   words.push({
@@ -127,6 +122,8 @@ export async function ocrPdfPage(
     }
   }
 
+  logger.info(`[OCR] 第${pageNum}页识别完成，共 ${words.length} 个词`);
+
   return {
     text: ocrData.text,
     words,
@@ -140,6 +137,7 @@ export async function ocrFullPdf(
   onProgress?: (page: number, total: number) => void
 ): Promise<OcrResult[]> {
   const results: OcrResult[] = [];
+  logger.info(`[OCR] 开始识别 ${pageCount} 页`);
   for (let i = 1; i <= pageCount; i++) {
     onProgress?.(i, pageCount);
     const result = await ocrPdfPage(pdfData, i);

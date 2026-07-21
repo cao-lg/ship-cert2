@@ -1,11 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Copy, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
-import { useCertStore, LogEntry } from '@/store/certStore';
+import { logger, LogItem } from '@/utils/logger';
 
 export default function LogPanel() {
-  const { logs, clearLogs, copyLogs } = useCertStore();
   const [collapsed, setCollapsed] = useState(false);
+  const [logs, setLogs] = useState<LogItem[]>(logger.getLogs());
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const unsubscribe = logger.subscribe(setLogs);
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -13,7 +18,7 @@ export default function LogPanel() {
     }
   }, [logs]);
 
-  const getLevelColor = (level: LogEntry['level']) => {
+  const getLevelColor = (level: LogItem['level']) => {
     switch (level) {
       case 'error': return 'text-red-500';
       case 'warn': return 'text-amber-500';
@@ -22,13 +27,18 @@ export default function LogPanel() {
     }
   };
 
-  const getLevelBg = (level: LogEntry['level']) => {
+  const getLevelBg = (level: LogItem['level']) => {
     switch (level) {
       case 'error': return 'bg-red-50';
       case 'warn': return 'bg-amber-50';
       case 'debug': return 'bg-gray-50';
       default: return 'bg-green-50';
     }
+  };
+
+  const handleCopy = () => {
+    const text = logs.map((log) => `[${log.level.toUpperCase()}] ${log.timestamp} - ${log.message}`).join('\n');
+    navigator.clipboard.writeText(text).catch(console.error);
   };
 
   return (
@@ -42,14 +52,14 @@ export default function LogPanel() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={copyLogs}
+            onClick={handleCopy}
             className="p-1.5 hover:bg-gray-200 rounded transition-colors"
             title="复制日志"
           >
             <Copy className="w-4 h-4 text-gray-500" />
           </button>
           <button
-            onClick={clearLogs}
+            onClick={() => logger.clear()}
             className="p-1.5 hover:bg-gray-200 rounded transition-colors"
             title="清空日志"
           >

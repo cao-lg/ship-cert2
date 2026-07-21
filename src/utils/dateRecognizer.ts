@@ -7,6 +7,7 @@ import {
   cleanInvisible,
   prepDateText,
 } from './textUtils';
+import { logger } from './logger';
 
 export interface DateGroup {
   x0: number;
@@ -49,15 +50,17 @@ export function buildLines(
 
   const juneLine = lines.find(l => l.text.includes('June') && l.text.includes('2031'));
   if (juneLine) {
-    console.log(`[buildLines] June 2031所在行: "${juneLine.text}"`);
+    logger.info(`[buildLines] June 2031所在行: "${juneLine.text}"`);
     for (const item of juneLine.items) {
-      console.log(`  "${item.str}" x0=${item.x0.toFixed(2)}, y=${item.y.toFixed(2)}, width=${item.width.toFixed(2)}`);
+      logger.debug(`  "${item.str}" x0=${item.x0.toFixed(2)}, y=${item.y.toFixed(2)}, width=${item.width.toFixed(2)}`);
     }
   } else {
-    console.log(`[buildLines] 没有找到包含"June"和"2031"的行`);
     const juneLines = lines.filter(l => l.text.includes('June'));
-    for (const l of juneLines) {
-      console.log(`  包含June的行: "${l.text}"`);
+    if (juneLines.length > 0) {
+      logger.info(`[buildLines] 没有找到包含"June"和"2031"的行`);
+      for (const l of juneLines) {
+        logger.debug(`  包含June的行: "${l.text}"`);
+      }
     }
   }
 
@@ -73,13 +76,6 @@ export function findDateGroups(
   const groups: Omit<DateGroup, 'li' | 'lineY'>[] = [];
   const sorted = [...items].sort((a, b) => a.y - b.y || a.x0 - b.x0);
 
-  console.log(`[findDateGroups] 总词数: ${sorted.length}`);
-  const june2031Items = sorted.filter(i => i.str === 'June' || i.str === '2031' || i.str === '01');
-  console.log(`[findDateGroups] 日期相关词: ${june2031Items.length}个`);
-  for (const item of june2031Items) {
-    console.log(`  "${item.str}" y=${item.y.toFixed(2)}, x0=${item.x0.toFixed(2)}, height=${item.height.toFixed(2)}`);
-  }
-
   const isSameLine = (a: typeof items[0], b: typeof items[0]): boolean => {
     const maxY = Math.max(a.y, b.y);
     const minY = Math.min(a.y - a.height, b.y - b.height);
@@ -90,7 +86,6 @@ export function findDateGroups(
     const combo = arr.map((i) => normToken(i.str)).join(' ');
     const iso = toIso(combo);
     if (!iso) {
-      console.log(`[findDateGroups] 组合失败: "${combo}"`);
       return false;
     }
 
@@ -100,7 +95,7 @@ export function findDateGroups(
     const yBot = Math.min(...arr.map((i) => i.y - i.height));
 
     groups.push({ x0, x1, yTop, yBot, iso });
-    console.log(`[findDateGroups] 组合成功: "${combo}" -> ${iso}`);
+    logger.debug(`[findDateGroups] 组合成功: "${combo}" -> ${iso}`);
     return true;
   };
 
@@ -112,36 +107,29 @@ export function findDateGroups(
       continue;
     }
 
-    console.log(`[findDateGroups] 处理第${i}个词: "${cur.str}"`);
-
     if (tryPush([cur])) { i++; continue; }
 
     let j = i + 1;
     while (j < sorted.length && sorted[j].str.trim() === '') j++;
-    console.log(`[findDateGroups]   j=${j}, 词="${sorted[j]?.str || '超出范围'}"`);
     if (j < sorted.length && isSameLine(cur, sorted[j]) && tryPush([cur, sorted[j]])) { i = j + 1; continue; }
 
     let k = j + 1;
     while (k < sorted.length && sorted[k].str.trim() === '') k++;
-    console.log(`[findDateGroups]   k=${k}, 词="${sorted[k]?.str || '超出范围'}"`);
     if (k < sorted.length && isSameLine(cur, sorted[k]) && tryPush([cur, sorted[j], sorted[k]])) { i = k + 1; continue; }
 
     let l = k + 1;
     while (l < sorted.length && sorted[l].str.trim() === '') l++;
-    console.log(`[findDateGroups]   l=${l}, 词="${sorted[l]?.str || '超出范围'}"`);
     if (l < sorted.length && isSameLine(cur, sorted[l]) && tryPush([cur, sorted[j], sorted[k], sorted[l]])) { i = l + 1; continue; }
 
     let m = l + 1;
     while (m < sorted.length && sorted[m].str.trim() === '') m++;
-    console.log(`[findDateGroups]   m=${m}, 词="${sorted[m]?.str || '超出范围'}"`);
     if (m < sorted.length && isSameLine(cur, sorted[m]) && tryPush([cur, sorted[j], sorted[k], sorted[l], sorted[m]])) { i = m + 1; continue; }
 
     i++;
   }
 
-  console.log(`[findDateGroups] 最终找到 ${groups.length} 个日期组`);
-  for (const g of groups) {
-    console.log(`  ${g.iso}: x0=${g.x0.toFixed(2)}, x1=${g.x1.toFixed(2)}, yTop=${g.yTop.toFixed(2)}, yBot=${g.yBot.toFixed(2)}`);
+  if (groups.length > 0) {
+    logger.info(`[findDateGroups] 找到 ${groups.length} 个日期组`);
   }
 
   return groups;
@@ -196,11 +184,8 @@ function ocrWordsToUnified(
   }));
   
   const dateDigits = result.filter(i => i.str.match(/^\d{1,2}$/));
-  if (dateDigits.length > 0) {
-    console.log(`[ocrWordsToUnified] 单/两位数词: ${dateDigits.length}个`);
-    for (const d of dateDigits) {
-      console.log(`  "${d.str}" x0=${d.x0.toFixed(2)}, y=${d.y.toFixed(2)}, height=${d.height.toFixed(2)}`);
-    }
+  if (dateDigits.length > 0 && dateDigits.length <= 10) {
+    logger.debug(`[ocrWordsToUnified] 单/两位数词: ${dateDigits.length}个`);
   }
   
   return result;
@@ -251,7 +236,6 @@ export function recognizeDatesFromUnified(
     for (const dg of pageDates) {
       let bestType: DateType | null = null;
       let bestScore = -Infinity;
-      let foundSameLineMatch = false;
 
       const currentLine = lines[dg.li];
       const currentLineNorm = normSp(currentLine.text);
@@ -267,7 +251,6 @@ export function recognizeDatesFromUnified(
           if (!kwNorm) continue;
 
           if (currentLineNorm.includes(kwNorm)) {
-            foundSameLineMatch = true;
             let score = 50 + Math.min(kwNorm.length / 10, 3);
             if (expiryHighPriorityKeywords.includes(keyword)) score += 10;
             
@@ -283,7 +266,7 @@ export function recognizeDatesFromUnified(
         }
       }
 
-      if (!foundSameLineMatch) {
+      if (!bestType) {
         for (const [dateType, info] of Object.entries(DATE_TYPE_INFO)) {
           for (const keyword of info.keywords) {
             const kwNorm = normSp(keyword);
@@ -330,9 +313,7 @@ export function recognizeDatesFromUnified(
           },
           rawText: dg.iso,
         };
-        console.log(`[日期识别] 第${page}页 ${bestType} ${dg.iso}:`);
-        console.log(`  yTop=${dg.yTop.toFixed(2)}, yBot=${dg.yBot.toFixed(2)}`);
-        console.log(`  position: x=${dateObj.position.x.toFixed(2)}, y=${dateObj.position.y.toFixed(2)}, w=${dateObj.position.width.toFixed(2)}, h=${dateObj.position.height.toFixed(2)}`);
+        logger.info(`[日期识别] 第${page}页 ${bestType} ${dg.iso}`);
         dates.push(dateObj);
       }
     }

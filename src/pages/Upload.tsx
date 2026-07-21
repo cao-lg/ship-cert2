@@ -5,6 +5,7 @@ import { useCertStore } from '@/store/certStore';
 import { processCertFile } from '@/utils/processor';
 import { CertType, CERT_TYPE_INFO, CertFile } from '@/types';
 import { CHANGELOG, getBuildTimestamp } from '@/config/changelog';
+import LogPanel from '@/components/LogPanel';
 
 export default function UploadPage() {
   const { files, addFile, removeFile, updateFile, setCertType } = useCertStore();
@@ -226,6 +227,7 @@ export default function UploadPage() {
           )}
         </div>
       </div>
+      <LogPanel />
     </div>
   );
 }
