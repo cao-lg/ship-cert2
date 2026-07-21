@@ -47,6 +47,20 @@ export function buildLines(
     line.x0 = Math.min(...line.items.map((i) => i.x0));
   }
 
+  const juneLine = lines.find(l => l.text.includes('June') && l.text.includes('2031'));
+  if (juneLine) {
+    console.log(`[buildLines] June 2031所在行: "${juneLine.text}"`);
+    for (const item of juneLine.items) {
+      console.log(`  "${item.str}" x0=${item.x0.toFixed(2)}, y=${item.y.toFixed(2)}, width=${item.width.toFixed(2)}`);
+    }
+  } else {
+    console.log(`[buildLines] 没有找到包含"June"和"2031"的行`);
+    const juneLines = lines.filter(l => l.text.includes('June'));
+    for (const l of juneLines) {
+      console.log(`  包含June的行: "${l.text}"`);
+    }
+  }
+
   lines.reverse();
 
   const plainText = lines.map((l) => l.text).join('\n');
