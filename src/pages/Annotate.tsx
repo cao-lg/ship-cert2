@@ -46,7 +46,7 @@ export default function AnnotatePage() {
     if (datesToAnnotate.length === 0) return;
     
     const annotated = file.isImageBased
-      ? await annotateImagePdf(file.pdfBytes, datesToAnnotate, 2.0)
+      ? await annotateImagePdf(file.pdfBytes, datesToAnnotate, 5.0)
       : await annotatePdf(file.pdfBytes, datesToAnnotate);
     updateFile(file.id, { annotatedPdfBytes: annotated });
   }, [updateFile]);
@@ -60,7 +60,8 @@ export default function AnnotatePage() {
       updatedDates[dateIndex] = { ...updatedDates[dateIndex], date: newDate };
       const datesToAnnotate = updatedDates.filter(d => d.type === 'EXPIRY' || d.type === 'ANNUAL_SURVEY');
       const annotateFn = file.isImageBased ? annotateImagePdf : annotatePdf;
-      annotateFn(file.pdfBytes, datesToAnnotate, 2.0).then((annotated) => {
+      const annotateScale = file.isImageBased ? 5.0 : undefined;
+      annotateFn(file.pdfBytes, datesToAnnotate, annotateScale).then((annotated) => {
         updateFile(fileId, { annotatedPdfBytes: annotated });
       });
     }

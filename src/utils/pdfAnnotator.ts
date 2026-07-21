@@ -74,7 +74,9 @@ export async function annotateImagePdf(
   for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
     const page = await pdf.getPage(pageNum);
     const viewport = page.getViewport({ scale });
-    const pageHeight = viewport.height;
+    const origViewport = page.getViewport({ scale: 1.0 });
+    const pageWidth = origViewport.width;
+    const pageHeight = origViewport.height;
 
     const canvas = document.createElement('canvas');
     canvas.width = viewport.width;
@@ -84,12 +86,14 @@ export async function annotateImagePdf(
     await page.render({ canvasContext: ctx, viewport }).promise;
 
     const pageDates = datesByPage.get(pageNum) || [];
+    const canvasHeight = viewport.height;
+    
     for (const d of pageDates) {
       const pos = d.position;
       const x = pos.x * scale;
       const w = pos.width * scale;
       const h = pos.height * scale;
-      const y = pageHeight - (pos.y + pos.height) * scale;
+      const y = canvasHeight - (pos.y + pos.height) * scale;
       
       ctx.strokeStyle = 'red';
       ctx.lineWidth = 3;
@@ -107,13 +111,12 @@ export async function annotateImagePdf(
     }
     const pngImage = await outputPdf.embedPng(pngBytes);
 
-    const origViewport = page.getViewport({ scale: 1.0 });
-    const newPage = outputPdf.addPage([origViewport.width, origViewport.height]);
+    const newPage = outputPdf.addPage([pageWidth, pageHeight]);
     newPage.drawImage(pngImage, {
       x: 0,
       y: 0,
-      width: origViewport.width,
-      height: origViewport.height,
+      width: pageWidth,
+      height: pageHeight,
     });
   }
 
