@@ -25,6 +25,24 @@ export interface LineItem {
   x0: number;
 }
 
+function isDateRelevant(str: string): boolean {
+  const s = str.trim();
+  if (!s) return false;
+  if (s.match(/^\d{4}$/)) return true;
+  if (s.match(/^\d{1,2}$/)) return true;
+  if (s.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)$/i)) return true;
+  if (s.match(/^(Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/i)) return true;
+  return false;
+}
+
+function skipNonDate(items: Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }>, startIdx: number): number {
+  let i = startIdx;
+  while (i < items.length && !isDateRelevant(items[i].str)) {
+    i++;
+  }
+  return i;
+}
+
 export function buildLines(
   items: Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }>
 ): { lines: LineItem[]; plainText: string } {
@@ -46,22 +64,6 @@ export function buildLines(
     line.items.sort((a, b) => a.x0 - b.x0);
     line.text = line.items.map((i) => i.str).join(' ');
     line.x0 = Math.min(...line.items.map((i) => i.x0));
-  }
-
-  const juneLine = lines.find(l => l.text.includes('June') && l.text.includes('2031'));
-  if (juneLine) {
-    logger.info(`[buildLines] June 2031所在行: "${juneLine.text}"`);
-    for (const item of juneLine.items) {
-      logger.debug(`  "${item.str}" x0=${item.x0.toFixed(2)}, y=${item.y.toFixed(2)}, width=${item.width.toFixed(2)}`);
-    }
-  } else {
-    const juneLines = lines.filter(l => l.text.includes('June'));
-    if (juneLines.length > 0) {
-      logger.info(`[buildLines] 没有找到包含"June"和"2031"的行`);
-      for (const l of juneLines) {
-        logger.debug(`  包含June的行: "${l.text}"`);
-      }
-    }
   }
 
   lines.reverse();
@@ -102,27 +104,23 @@ export function findDateGroups(
   let i = 0;
   while (i < sorted.length) {
     const cur = sorted[i];
-    if (cur.str.trim() === '') {
+    if (!isDateRelevant(cur.str)) {
       i++;
       continue;
     }
 
     if (tryPush([cur])) { i++; continue; }
 
-    let j = i + 1;
-    while (j < sorted.length && sorted[j].str.trim() === '') j++;
+    let j = skipNonDate(sorted, i + 1);
     if (j < sorted.length && isSameLine(cur, sorted[j]) && tryPush([cur, sorted[j]])) { i = j + 1; continue; }
 
-    let k = j + 1;
-    while (k < sorted.length && sorted[k].str.trim() === '') k++;
+    let k = skipNonDate(sorted, j + 1);
     if (k < sorted.length && isSameLine(cur, sorted[k]) && tryPush([cur, sorted[j], sorted[k]])) { i = k + 1; continue; }
 
-    let l = k + 1;
-    while (l < sorted.length && sorted[l].str.trim() === '') l++;
+    let l = skipNonDate(sorted, k + 1);
     if (l < sorted.length && isSameLine(cur, sorted[l]) && tryPush([cur, sorted[j], sorted[k], sorted[l]])) { i = l + 1; continue; }
 
-    let m = l + 1;
-    while (m < sorted.length && sorted[m].str.trim() === '') m++;
+    let m = skipNonDate(sorted, l + 1);
     if (m < sorted.length && isSameLine(cur, sorted[m]) && tryPush([cur, sorted[j], sorted[k], sorted[l], sorted[m]])) { i = m + 1; continue; }
 
     i++;
@@ -174,7 +172,7 @@ function ocrWordsToUnified(
   words: OcrWord[],
   page: number
 ): Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }> {
-  const result = words.map((w) => ({
+  return words.map((w) => ({
     str: cleanInvisible(w.text),
     x0: w.bbox.x0,
     y: w.bbox.y1,
@@ -182,13 +180,6 @@ function ocrWordsToUnified(
     height: w.bbox.y1 - w.bbox.y0,
     page,
   }));
-  
-  const dateDigits = result.filter(i => i.str.match(/^\d{1,2}$/));
-  if (dateDigits.length > 0 && dateDigits.length <= 10) {
-    logger.debug(`[ocrWordsToUnified] 单/两位数词: ${dateDigits.length}个`);
-  }
-  
-  return result;
 }
 
 export function recognizeDatesFromUnified(
