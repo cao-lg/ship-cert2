@@ -78,6 +78,9 @@ export function toIso(text: string): string | null {
   m = text.match(new RegExp(`^(${MONTH_ALT})\\s+(\\d{1,2}),?\\s+(\\d{4})$`, 'i'));
   if (m) return `${m[3]}-${String(monthNum(m[1])!).padStart(2, '0')}-${String(parseInt(m[2], 10)).padStart(2, '0')}`;
 
+  m = text.match(new RegExp(`^(${MONTH_ALT})\\s+(\\d{1,2})\\s+(\\d{4})$`, 'i'));
+  if (m) return `${m[3]}-${String(monthNum(m[1])!).padStart(2, '0')}-${String(parseInt(m[2], 10)).padStart(2, '0')}`;
+
   m = text.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日$/);
   if (m) return `${m[1]}-${String(parseInt(m[2], 10)).padStart(2, '0')}-${String(parseInt(m[3], 10)).padStart(2, '0')}`;
 

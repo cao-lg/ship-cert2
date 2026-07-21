@@ -57,8 +57,6 @@ export function findDateGroups(
   items: Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }>
 ): Omit<DateGroup, 'li' | 'lineY'>[] {
   const groups: Omit<DateGroup, 'li' | 'lineY'>[] = [];
-  // items 来自 buildLines 的 line.items，已按 x0 排序（从左到右）
-  // 不能再按 y 排序，否则会打乱同行内从左到右的顺序，导致滑动窗口组合不出日期
   const sorted = [...items].sort((a, b) => a.x0 - b.x0);
 
   const tryPush = (arr: typeof items): boolean => {
@@ -77,9 +75,30 @@ export function findDateGroups(
 
   let i = 0;
   while (i < sorted.length) {
-    if (tryPush([sorted[i]])) { i++; continue; }
-    if (i + 2 < sorted.length && tryPush(sorted.slice(i, i + 3))) { i += 3; continue; }
-    if (i + 4 < sorted.length && tryPush(sorted.slice(i, i + 5))) { i += 5; continue; }
+    const cur = sorted[i];
+    if (cur.str.trim() === '') {
+      i++;
+      continue;
+    }
+
+    if (tryPush([cur])) { i++; continue; }
+
+    let j = i + 1;
+    while (j < sorted.length && sorted[j].str.trim() === '') j++;
+    if (j < sorted.length && tryPush([cur, sorted[j]])) { i = j + 1; continue; }
+
+    let k = j + 1;
+    while (k < sorted.length && sorted[k].str.trim() === '') k++;
+    if (k < sorted.length && tryPush([cur, sorted[j], sorted[k]])) { i = k + 1; continue; }
+
+    let l = k + 1;
+    while (l < sorted.length && sorted[l].str.trim() === '') l++;
+    if (l < sorted.length && tryPush([cur, sorted[j], sorted[k], sorted[l]])) { i = l + 1; continue; }
+
+    let m = l + 1;
+    while (m < sorted.length && sorted[m].str.trim() === '') m++;
+    if (m < sorted.length && tryPush([cur, sorted[j], sorted[k], sorted[l], sorted[m]])) { i = m + 1; continue; }
+
     i++;
   }
 
@@ -180,34 +199,60 @@ export function recognizeDatesFromUnified(
     for (const dg of pageDates) {
       let bestType: DateType | null = null;
       let bestScore = -Infinity;
+      let foundSameLineMatch = false;
+
+      const currentLine = lines[dg.li];
+      const currentLineNorm = normSp(currentLine.text);
+      
+      const hasRenewal = currentLineNorm.includes('renewal');
+      const hasVerification = currentLineNorm.includes('verification');
+      const hasCompletion = currentLineNorm.includes('completion');
+      const contextPenalty = (hasRenewal || hasVerification || hasCompletion) ? 50 : 0;
 
       for (const [dateType, info] of Object.entries(DATE_TYPE_INFO)) {
         for (const keyword of info.keywords) {
           const kwNorm = normSp(keyword);
           if (!kwNorm) continue;
 
-          for (let li = Math.max(0, dg.li - WIN); li <= Math.min(lines.length - 1, dg.li + WIN); li++) {
-            const line = lines[li];
-            const n = normSp(line.text);
-            if (!n.includes(kwNorm)) continue;
-
-            const lineY = line.items.reduce((s, i) => s + i.y, 0) / Math.max(1, line.items.length);
-            const dy = Math.abs(lineY - dg.lineY);
-            const dist = Math.abs(li - dg.li);
-
-            const kwWeight = Math.min(kwNorm.length / 10, 3);
-            
-            const isExpiryHighPriority = expiryHighPriorityKeywords.includes(keyword);
-            const priorityBonus = isExpiryHighPriority ? 10 : (dateType === 'ANNUAL_SURVEY' ? 5 : 0);
-            const sameLineBonus = li === dg.li ? 10 : 0;
-            const afterBonus = li > dg.li ? 0 : -2;
-            const distPenalty = dist * 0.5;
-
-            const score = kwWeight + priorityBonus + sameLineBonus + afterBonus - distPenalty - dy * 0.01;
-
+          if (currentLineNorm.includes(kwNorm)) {
+            foundSameLineMatch = true;
+            let score = 50 + Math.min(kwNorm.length / 10, 3);
+            if (expiryHighPriorityKeywords.includes(keyword)) score += 10;
             if (score > bestScore) {
               bestScore = score;
               bestType = dateType as DateType;
+            }
+          }
+        }
+      }
+
+      if (!foundSameLineMatch) {
+        for (const [dateType, info] of Object.entries(DATE_TYPE_INFO)) {
+          for (const keyword of info.keywords) {
+            const kwNorm = normSp(keyword);
+            if (!kwNorm) continue;
+
+            for (let li = Math.max(0, dg.li - WIN); li <= Math.min(lines.length - 1, dg.li + WIN); li++) {
+              if (li === dg.li) continue;
+              const line = lines[li];
+              const n = normSp(line.text);
+              if (!n.includes(kwNorm)) continue;
+
+              const dist = Math.abs(li - dg.li);
+              const kwWeight = Math.min(kwNorm.length / 10, 3);
+              const priorityBonus = expiryHighPriorityKeywords.includes(keyword) ? 10 : (dateType === 'ANNUAL_SURVEY' ? 5 : 0);
+              const afterBonus = li > dg.li ? 0 : -2;
+              const distPenalty = dist * 2;
+
+              let score = kwWeight + priorityBonus + afterBonus - distPenalty;
+              if (dateType === 'EXPIRY' && (hasRenewal || hasVerification)) {
+                score -= contextPenalty;
+              }
+
+              if (score > bestScore) {
+                bestScore = score;
+                bestType = dateType as DateType;
+              }
             }
           }
         }

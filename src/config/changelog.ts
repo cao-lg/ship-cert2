@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-21 06:00:00 北京时间';
+export const BUILD_TIMESTAMP = '2026-07-21 07:00:00 北京时间';
 
 export interface ChangelogEntry {
   version: string;
@@ -11,14 +11,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: 'v3.9.0',
+    version: 'v3.9.1',
     date: '2026-07-21',
     changes: [
-      '【关键修复】移除负面关键词排除机制，改用大幅提高有效日期关键词权重',
-      '问题：负面关键词范围太广，导致所有日期都被排除',
-      '解决：将"valid until"等有效日期关键词优先级从3提高到10',
-      '同行匹配加分从5提高到10，确保"this Certificate is valid until May 12, 2028"优先匹配',
-      '同时保留签发日期和有效日期的识别',
+      '【关键修复】彻底解决ISSC证书日期识别错误',
+      '问题："Date of Renewal verification"日期被误识别为有效日期',
+      '原因：日期被拆分成多个token（包含空格），无法匹配；跨行匹配时权重过低',
+      '解决：',
+      '1. findDateGroups跳过空格token，支持1-5个非空格token组合',
+      '2. toIso增加不带逗号的日期格式支持（"May 12 2028"）',
+      '3. 同行匹配优先：先检查同行关键词，再跨行查找',
+      '4. 上下文惩罚：日期所在行包含"Renewal/Verification/Completion"时，降低跨行匹配EXPIRY的得分',
+      '最终：ISSC证书正确识别2028-05-12(有效日期)和2023-02-16(签发日期)',
     ],
   },
   {
