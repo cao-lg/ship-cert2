@@ -20,7 +20,6 @@ export default function AnnotatePage() {
   const [viewAnnotated, setViewAnnotated] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // 加载PDF页面
   useEffect(() => {
     if (!activeFile) return;
     getPdfPageCount(activeFile.pdfBytes).then(setTotalPages);
@@ -40,7 +39,6 @@ export default function AnnotatePage() {
   const handleZoomIn = () => setScale((s) => Math.min(3, s + 0.25));
   const handleZoomOut = () => setScale((s) => Math.max(0.5, s - 0.25));
 
-  // 重新标注
   const reAnnotate = useCallback(async (file: CertFile) => {
     if (file.dates.length === 0) return;
     const datesToAnnotate = file.dates.filter(d => d.type === 'EXPIRY' || d.type === 'ANNUAL_SURVEY');
@@ -52,7 +50,6 @@ export default function AnnotatePage() {
     updateFile(file.id, { annotatedPdfBytes: annotated });
   }, [updateFile]);
 
-  // 日期修改后重新标注
   const handleDateChange = useCallback((fileId: string, dateIndex: number, newDate: string) => {
     setDate(fileId, dateIndex, newDate);
     const file = files.find((f) => f.id === fileId);
@@ -88,7 +85,6 @@ export default function AnnotatePage() {
 
   return (
     <div className="min-h-screen bg-[#F7F8FA] flex flex-col">
-      {/* 顶部导航 */}
       <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-4">
         <button onClick={() => navigate('/')} className="text-[#1B6CA8] hover:text-[#155A8E] font-medium text-sm">
           上传
@@ -106,7 +102,6 @@ export default function AnnotatePage() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* 左侧文件列表 */}
         <div className="w-56 bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0">
           <div className="p-3 border-b border-gray-100">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">证书列表</h3>
@@ -138,9 +133,7 @@ export default function AnnotatePage() {
           ))}
         </div>
 
-        {/* 中间PDF预览 */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* PDF工具栏 */}
           <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center gap-3">
             <button onClick={handleZoomOut} className="p-1.5 hover:bg-gray-100 rounded" title="缩小">
               <ZoomOut className="w-4 h-4 text-gray-600" />
@@ -171,7 +164,6 @@ export default function AnnotatePage() {
             </label>
           </div>
 
-          {/* PDF Canvas */}
           <div className="flex-1 overflow-auto bg-gray-100 flex justify-center p-4">
             <canvas
               ref={canvasRef}
@@ -181,11 +173,9 @@ export default function AnnotatePage() {
           </div>
         </div>
 
-        {/* 右侧识别结果面板 */}
         <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto flex-shrink-0">
           {activeFile && (
             <div className="p-4">
-              {/* 证书类型 */}
               <div className="mb-6">
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">证书类型</h3>
                 <select
@@ -203,7 +193,6 @@ export default function AnnotatePage() {
                 </select>
               </div>
 
-              {/* 日期识别结果 */}
               <div className="mb-6">
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5" />
@@ -229,7 +218,6 @@ export default function AnnotatePage() {
                 )}
               </div>
 
-              {/* 证书信息摘要 */}
               <div className="bg-[#F7F8FA] rounded-lg p-3 text-xs text-gray-500 space-y-1">
                 <div className="flex justify-between">
                   <span>文件名</span>
@@ -252,11 +240,12 @@ export default function AnnotatePage() {
           )}
         </div>
       </div>
+
+      <LogPanel />
     </div>
   );
 }
 
-// 日期卡片组件
 function DateCard({
   dateInfo,
   index,
