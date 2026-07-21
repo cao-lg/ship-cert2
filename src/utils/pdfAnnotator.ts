@@ -72,62 +72,66 @@ export async function annotateImagePdf(
   const outputPdf = await PDFDocument.create();
 
   for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
-    const page = await pdf.getPage(pageNum);
-    const viewport = page.getViewport({ scale });
-    const origViewport = page.getViewport({ scale: 1.0 });
-    const pageWidth = origViewport.width;
-    const pageHeight = origViewport.height;
+    try {
+      const page = await pdf.getPage(pageNum);
+      const viewport = page.getViewport({ scale });
+      const origViewport = page.getViewport({ scale: 1.0 });
+      const pageWidth = origViewport.width;
+      const pageHeight = origViewport.height;
 
-    const canvas = document.createElement('canvas');
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const ctx = canvas.getContext('2d')!;
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d')!;
 
-    await page.render({ canvasContext: ctx, viewport }).promise;
+      await page.render({ canvasContext: ctx, viewport }).promise;
 
-    const pageDates = datesByPage.get(pageNum) || [];
-    const canvasHeight = viewport.height;
-    
-    console.log(`[PDF标注] 第${pageNum}页, scale=${scale}`);
-    console.log(`[PDF标注] canvas尺寸: ${viewport.width} x ${viewport.height}`);
-    console.log(`[PDF标注] 用户空间尺寸: ${pageWidth} x ${pageHeight}`);
-    console.log(`[PDF标注] 待标注日期数: ${pageDates.length}`);
-    
-    for (const d of pageDates) {
-      const pos = d.position;
-      const x = pos.x * scale;
-      const w = pos.width * scale;
-      const h = pos.height * scale;
-      const y = canvasHeight - (pos.y + pos.height) * scale;
+      const pageDates = datesByPage.get(pageNum) || [];
+      const canvasHeight = viewport.height;
       
-      console.log(`[PDF标注] ${d.type} ${d.date}:`);
-      console.log(`  用户空间: x=${pos.x.toFixed(2)}, y=${pos.y.toFixed(2)}, w=${pos.width.toFixed(2)}, h=${pos.height.toFixed(2)}`);
-      console.log(`  canvas绘制: x=${x.toFixed(0)}, y=${y.toFixed(0)}, w=${w.toFixed(0)}, h=${h.toFixed(0)}`);
-      console.log(`  位置: ${y < viewport.height / 2 ? '上半部分' : '下半部分'}`);
+      console.log(`[PDF标注] 第${pageNum}页, scale=${scale}`);
+      console.log(`[PDF标注] canvas尺寸: ${viewport.width} x ${viewport.height}`);
+      console.log(`[PDF标注] 用户空间尺寸: ${pageWidth} x ${pageHeight}`);
+      console.log(`[PDF标注] 待标注日期数: ${pageDates.length}`);
       
-      ctx.strokeStyle = 'red';
-      ctx.lineWidth = 3;
-      ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
-      ctx.fillRect(x, y, w, h);
-      ctx.strokeRect(x, y, w, h);
-    }
+      for (const d of pageDates) {
+        const pos = d.position;
+        const x = pos.x * scale;
+        const w = pos.width * scale;
+        const h = pos.height * scale;
+        const y = canvasHeight - (pos.y + pos.height) * scale;
+        
+        console.log(`[PDF标注] ${d.type} ${d.date}:`);
+        console.log(`  用户空间: x=${pos.x.toFixed(2)}, y=${pos.y.toFixed(2)}, w=${pos.width.toFixed(2)}, h=${pos.height.toFixed(2)}`);
+        console.log(`  canvas绘制: x=${x.toFixed(0)}, y=${y.toFixed(0)}, w=${w.toFixed(0)}, h=${h.toFixed(0)}`);
+        console.log(`  位置: ${y < viewport.height / 2 ? '上半部分' : '下半部分'}`);
+        
+        ctx.strokeStyle = 'red';
+        ctx.lineWidth = 3;
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.1)';
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeRect(x, y, w, h);
+      }
 
-    const pngData = canvas.toDataURL('image/png');
-    const base64 = pngData.split(',')[1];
-    const binaryString = atob(base64);
-    const pngBytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      pngBytes[i] = binaryString.charCodeAt(i);
-    }
-    const pngImage = await outputPdf.embedPng(pngBytes);
+      const pngData = canvas.toDataURL('image/png');
+      const base64 = pngData.split(',')[1];
+      const binaryString = atob(base64);
+      const pngBytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        pngBytes[i] = binaryString.charCodeAt(i);
+      }
+      const pngImage = await outputPdf.embedPng(pngBytes);
 
-    const newPage = outputPdf.addPage([pageWidth, pageHeight]);
-    newPage.drawImage(pngImage, {
-      x: 0,
-      y: 0,
-      width: pageWidth,
-      height: pageHeight,
-    });
+      const newPage = outputPdf.addPage([pageWidth, pageHeight]);
+      newPage.drawImage(pngImage, {
+        x: 0,
+        y: 0,
+        width: pageWidth,
+        height: pageHeight,
+      });
+    } catch (e) {
+      console.error(`[PDF标注] 第${pageNum}页处理失败:`, e);
+    }
   }
 
   return outputPdf.save();

@@ -75,6 +75,7 @@ export async function ocrPdfPage(
   // 设备空间 → 用户空间（PDF坐标系，左下角原点，Y轴向上）
   // 对于未旋转页面：y_user = viewport_height - y_device
   const vpHeight = viewport.height;
+  const userHeight = vpHeight / scale;
 
   const words: OcrWord[] = [];
 
@@ -93,6 +94,11 @@ export async function ocrPdfPage(
                   
                   const userY0 = (vpHeight - dy1) / scale;
                   const userY1 = (vpHeight - dy0) / scale;
+
+                  if (userY1 < 0 || userY0 > userHeight + 100) {
+                    console.warn(`[OCR] 坐标异常，跳过: y0=${userY0.toFixed(2)}, y1=${userY1.toFixed(2)}, text="${w.text}"`);
+                    continue;
+                  }
                   
                   words.push({
                     text: w.text,
