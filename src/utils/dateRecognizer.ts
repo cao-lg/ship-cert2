@@ -27,7 +27,7 @@ export interface LineItem {
 export function buildLines(
   items: Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }>
 ): { lines: LineItem[]; plainText: string } {
-  const sorted = [...items].sort((a, b) => b.y - a.y || a.x0 - b.x0);
+  const sorted = [...items].sort((a, b) => a.y - b.y || a.x0 - b.x0);
   const lines: LineItem[] = [];
   let cur: typeof items | null = null;
   let curY: number | null = null;
@@ -46,6 +46,8 @@ export function buildLines(
     line.text = line.items.map((i) => i.str).join(' ');
     line.x0 = Math.min(...line.items.map((i) => i.x0));
   }
+
+  lines.reverse();
 
   const plainText = lines.map((l) => l.text).join('\n');
   return { lines, plainText };
