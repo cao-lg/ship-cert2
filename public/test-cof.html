@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>OCR测试</title>
+</head>
+<body>
+  <h1>OCR测试 - COF PDF</h1>
+  <div id="status">加载中...</div>
+  <div id="results"></div>
+  <canvas id="canvas" style="max-width: 100%; border: 1px solid #ccc;"></canvas>
+  
+  <script type="module">
+    import * as pdfjsLib from 'pdfjs-dist';
+    import { createWorker } from 'tesseract.js';
+    
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdfjs-dist/build/pdf.worker.min.mjs';
+    
+    const statusEl = document.getElementById('status');
+    const resultsEl = document.getElementById('results');
+    const canvas = document.getElementById('canvas');
+    
+    // deviceToUser
+    function deviceToUser(vp, dx, dy) {
+      const [a, b, c, d, e, f] = vp.transform;
+      const det = a * d - b * c;
+      if (Math.abs(det) < 1e-10) return [dx, dy];
+      const x = (d * (dx - e) - c * (dy - f)) / det;
+      const y = (-b * (dx - e) + a * (dy - f)) / det;
+      return [x, y];
+    }
+    
+    async function main() {
+      statusEl.textContent = '加载PDF...';
+      
+      // 加载PDF
+      const response = await fetch('/test.pdf');
+      const pdfData = new Uint8Array(await response.arrayBuffer());
+      
+      const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
+      const page = await pdf.getPage(1);
+      const scale = 3.0;
+      const viewport = page.getViewport({ scale });
+      
+      statusEl.textContent = `页面尺寸: ${(viewport.width/scale).toFixed(1)} x ${(viewport.height/scale).toFixed(1)} pt, 渲染中...`;
+      
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      
+      statusEl.textContent = 'OCR识别中...';
+      
+      const worker = await createWorker('eng');
+      const result = await worker.recognize(canvas);
+      await worker.terminate();
+      
+      const ocrData = result.data;
+      const pageHeight = viewport.height / scale;
+      
+      statusEl.textContent = '识别完成！';
+      
+      // 找包含年份的words
+      const yearWords = ocrData.words.filter(w => /20\d{2}/.test(w.text));
+      
+      resultsEl.innerHTML = '<h2>包含年份的words（原始Canvas像素坐标）:</h2>';
+      yearWords.forEach((w, i) => {
+        const ux0 = deviceToUser(viewport, w.bbox.x0, w.bbox.y0)[0];
+        const uy0 = deviceToUser(viewport, w.bbox.x0, w.bbox.y0)[1];
+        const ux1 = deviceToUser(viewport, w.bbox.x1, w.bbox.y1)[0];
+        const uy1 = deviceToUser(viewport, w.bbox.x1, w.bbox.y1)[1];
+        
+        resultsEl.innerHTML += `
+          <div style="margin: 5px; padding: 5px; background: #f0f0f0;">
+            <strong>${w.text}</strong><br>
+            Canvas: (${w.bbox.x0.toFixed(0)}, ${w.bbox.y0.toFixed(0)}) - (${w.bbox.x1.toFixed(0)}, ${w.bbox.y1.toFixed(0)})<br>
+            用户空间: (${ux0.toFixed(1)}, ${uy0.toFixed(1)}) - (${ux1.toFixed(1)}, ${uy1.toFixed(1)})<br>
+            用户空间y大 = 上方: y0=${uy0.toFixed(1)}, y1=${uy1.toFixed(1)}, 顶部y=${Math.max(uy0, uy1).toFixed(1)}
+          </div>
+        `;
+        
+        // 在Canvas上画框（绿色）
+        ctx.strokeStyle = 'green';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(w.bbox.x0, w.bbox.y0, w.bbox.x1 - w.bbox.x0, w.bbox.y1 - w.bbox.y0);
+      });
+      
+      // 尝试匹配日期位置
+      resultsEl.innerHTML += '<h2>尝试匹配 "02 June 2026":</h2>';
+      
+      const year = '2026';
+      const month = 'june';
+      const day = '02';
+      
+      const cleanWord = (s) => s.replace(/[\(\)\.,;:]/g, '').trim().toLowerCase();
+      
+      const monthFullNames = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+      const monthAbbrNames = ['jan','feb','mar','apr','jun','jul','aug','sep','oct','nov','dec'];
+      
+      const isMonthWord = (wordText) => {
+        const clean = cleanWord(wordText);
+        const monthLower = month;
+        if (monthLower === clean) return true;
+        if (monthFullNames.some(m => m.startsWith(monthLower) && clean.startsWith(monthLower.substring(0, 3)))) return true;
+        if (monthAbbrNames.some(m => m === monthLower.substring(0, 3) && clean.startsWith(m))) return true;
+        return false;
+      };
+      
+      const isDayWord = (wordText) => {
+        const clean = cleanWord(wordText);
+        return clean === day || clean === day.padStart(2, '0');
+      };
+      
+      const yearCandidates = ocrData.words.filter(w => {
+        const clean = cleanWord(w.text);
+        return clean === year || clean.includes(year);
+      });
+      
+      let bestResult = null;
+      let bestScore = 0;
+      
+      for (const yearWord of yearCandidates) {
+        const yearCenterY = (yearWord.bbox.y0 + yearWord.bbox.y1) / 2;
+        const yearHeight = yearWord.bbox.y1 - yearWord.bbox.y0;
+        const yThreshold = Math.max(yearHeight * 2, 50); // 像素坐标，阈值大
+        const xThreshold = Math.max(yearHeight * 8, 200);
+        
+        const nearbyWords = ocrData.words.filter(w => {
+          const wCenterY = (w.bbox.y0 + w.bbox.y1) / 2;
+          const wCenterX = (w.bbox.x0 + w.bbox.x1) / 2;
+          const yearCenterX = (yearWord.bbox.x0 + yearWord.bbox.x1) / 2;
+          return Math.abs(wCenterY - yearCenterY) < yThreshold &&
+                 Math.abs(wCenterX - yearCenterX) < xThreshold;
+        });
+        
+        nearbyWords.sort((a, b) => a.bbox.x0 - b.bbox.x0);
+        
+        let hasMonth = false;
+        let hasDay = false;
+        const dateWords = [yearWord];
+        
+        for (const w of nearbyWords) {
+          if (w === yearWord) continue;
+          if (isMonthWord(w.text)) { hasMonth = true; dateWords.push(w); }
+          if (isDayWord(w.text)) { hasDay = true; dateWords.push(w); }
+        }
+        
+        let score = 1;
+        if (hasMonth) score += 3;
+        if (hasDay) score += 2;
+        
+        if (score > bestScore && score >= 3) {
+          bestScore = score;
+          
+          const xs = dateWords.map(w => w.bbox.x0);
+          const xEnds = dateWords.map(w => w.bbox.x1);
+          const ys = dateWords.map(w => w.bbox.y0);
+          const yEnds = dateWords.map(w => w.bbox.y1);
+          
+          const pad = 6;
+          bestResult = {
+            x: Math.min(...xs) - pad,
+            y: Math.min(...ys) - pad,
+            width: Math.max(...xEnds) - Math.min(...xs) + pad * 2,
+            height: Math.max(...yEnds) - Math.min(...ys) + pad * 2,
+            dateWords: dateWords.map(w => w.text),
+            score,
+          };
+        }
+      }
+      
+      if (bestResult) {
+        resultsEl.innerHTML += `
+          <div style="margin: 10px; padding: 10px; background: #ffe0e0; border: 2px solid red;">
+            <strong>找到匹配！</strong><br>
+            评分: ${bestScore}<br>
+            日期words: ${bestResult.dateWords.join(', ')}<br>
+            Canvas坐标: x=${bestResult.x.toFixed(0)}, y=${bestResult.y.toFixed(0)}, w=${bestResult.width.toFixed(0)}, h=${bestResult.height.toFixed(0)}
+          </div>
+        `;
+        
+        // 在Canvas上画红色框
+        ctx.strokeStyle = 'red';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(bestResult.x, bestResult.y, bestResult.width, bestResult.height);
+        
+        // 转换为用户空间坐标
+        const ux0 = deviceToUser(viewport, bestResult.x, bestResult.y)[0];
+        const uy0 = deviceToUser(viewport, bestResult.x, bestResult.y)[1];
+        const ux1 = deviceToUser(viewport, bestResult.x + bestResult.width, bestResult.y + bestResult.height)[0];
+        const uy1 = deviceToUser(viewport, bestResult.x + bestResult.width, bestResult.y + bestResult.height)[1];
+        
+        resultsEl.innerHTML += `
+          <div style="margin: 10px; padding: 10px; background: #e0ffe0;">
+            <strong>用户空间坐标（pdf-lib用）:</strong><br>
+            x: ${Math.min(ux0, ux1).toFixed(1)}<br>
+            y: ${Math.min(uy0, uy1).toFixed(1)} (底部)<br>
+            width: ${Math.abs(ux1 - ux0).toFixed(1)}<br>
+            height: ${Math.abs(uy1 - uy0).toFixed(1)}<br>
+            页面高度: ${pageHeight.toFixed(1)}<br>
+            距离顶部: ${(pageHeight - Math.max(uy0, uy1)).toFixed(1)} pt
+          </div>
+        `;
+      } else {
+        resultsEl.innerHTML += '<div style="color: red;">未找到匹配的日期位置！</div>';
+      }
+      
+      // 输出OCR文本中所有日期
+      resultsEl.innerHTML += '<h2>OCR识别到的日期文本:</h2>';
+      const dateRegex = /(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|June|July|August|September|October|November|December)[\.,]?\s+\d{4})/gi;
+      const matches = ocrData.text.match(dateRegex);
+      if (matches) {
+        matches.forEach(m => {
+          resultsEl.innerHTML += `<div style="padding: 3px; margin: 2px; background: #ffffe0;">${m}</div>`;
+        });
+      } else {
+        resultsEl.innerHTML += '<div style="color: red;">未找到日期文本</div>';
+      }
+    }
+    
+    main().catch(e => {
+      statusEl.textContent = '错误: ' + e.message;
+      console.error(e);
+    });
+  </script>
+</body>
+</html>

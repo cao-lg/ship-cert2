@@ -171,6 +171,8 @@ export function recognizeDatesFromUnified(
   const WIN = 15;
   
   const highPriorityKeywords = ['Valid Until', 'Valid until', 'this Certificate is valid until', 'Date of Expiry', 'Expiry Date', 'Expires', 'expires on', 'Date of Issue', 'Issued at', 'Issued on', 'Annual Survey'];
+  
+  const negativeKeywords = ['Renewal verification', 'Renewal', 'Verification', 'on which this certificate is based', 'completion date of survey'];
 
   for (const pageStr of Object.keys(allPageDates)) {
     const page = parseInt(pageStr);
@@ -178,6 +180,23 @@ export function recognizeDatesFromUnified(
     const lines = allLines[page] || [];
 
     for (const dg of pageDates) {
+      let hasNegativeKeyword = false;
+      for (let li = Math.max(0, dg.li - 3); li <= Math.min(lines.length - 1, dg.li + 3); li++) {
+        const line = lines[li];
+        const n = normSp(line.text);
+        for (const negKw of negativeKeywords) {
+          if (n.includes(normSp(negKw))) {
+            hasNegativeKeyword = true;
+            break;
+          }
+        }
+        if (hasNegativeKeyword) break;
+      }
+
+      if (hasNegativeKeyword) {
+        continue;
+      }
+
       let bestType: DateType | null = null;
       let bestScore = -Infinity;
 

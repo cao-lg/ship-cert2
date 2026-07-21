@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>COF PDF OCR Test</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs" type="module"></script>
+  <script src='https://cdn.jsdelivr.net/npm/tesseract.js@6/dist/tesseract.min.js'></script>
+  <style>
+    body { font-family: monospace; padding: 20px; }
+    .log { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 4px; white-space: pre-wrap; }
+    canvas { max-width: 100%; border: 1px solid #ccc; }
+  </style>
+</head>
+<body>
+  <h1>COF PDF OCR Test</h1>
+  <div id="status">加载中...</div>
+  <div id="log" class="log"></div>
+  <canvas id="canvas"></canvas>
+
+  <script type="module">
+    import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs';
+
+    const logEl = document.getElementById('log');
+    const statusEl = document.getElementById('status');
+    
+    function log(msg) {
+      console.log(msg);
+      logEl.textContent += msg + '\n';
+    }
+
+    function deviceToUser(vp, dx, dy) {
+      const [a, b, c, d, e, f] = vp.transform;
+      const det = a * d - b * c;
+      if (Math.abs(det) < 1e-10) return [dx, dy];
+      const x = (d * (dx - e) - c * (dy - f)) / det;
+      const y = (-b * (dx - e) + a * (dy - f)) / det;
+      return [x, y];
+    }
+
+    function cleanWord(s) {
+      return s.replace(/[\(\)\.,;:]/g, '').trim().toLowerCase();
+    }
+
+    function findOcrDatePosition(words, matchedText) {
+      const normalized = matchedText.toLowerCase().trim();
+
+      const datePattern = /(\d{1,2})\s+(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[\.,]?\s+(\d{4})/i;
+      const datePattern2 = /(\d{1,2})[\/\.\-](\d{1,2})[\/\.\-](\d{4})/;
+      const datePattern3 = /(\d{4})-(\d{1,2})-(\d{1,2})/;
+      const datePattern4 = /(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s+(\d{4})/i;
+
+      let day = '';
+      let month = '';
+      let year = '';
+      let isNumericMonth = false;
+      let monthBeforeDay = false;
+
+      const m1 = normalized.match(datePattern);
+      if (m1) {
+        day = m1[1];
+        month = m1[2].toLowerCase();
+        year = m1[3];
+      } else {
+        const m2 = normalized.match(datePattern2);
+        if (m2) {
+          day = m2[1];
+          month = m2[2];
+          year = m2[3];
+          isNumericMonth = true;
+        } else {
+          const m3 = normalized.match(datePattern3);
+          if (m3) {
+            year = m3[1];
+            month = m3[2];
+            day = m3[3];
+            isNumericMonth = true;
+          } else {
+            const m4 = normalized.match(datePattern4);
+            if (m4) {
+              month = m4[1].toLowerCase();
+              day = m4[2];
+              year = m4[3];
+              monthBeforeDay = true;
+            }
+          }
+        }
+      }
+
+      if (!year) {
+        log('  [findOcrDatePosition] 未解析到年份');
+        return null;
+      }
+
+      log(`  [findOcrDatePosition] 解析日期: day=${day}, month=${month}, year=${year}, numeric=${isNumericMonth}`);
+
+      const monthFullNames = [
+        'january', 'february', 'march', 'april', 'may', 'june',
+        'july', 'august', 'september', 'october', 'november', 'december',
+      ];
+      const monthAbbrNames = [
+        'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+      ];
+
+      const isMonthWord = (wordText) => {
+        const clean = cleanWord(wordText);
+        if (!month) return false;
+        
+        if (isNumericMonth) {
+          return clean === month || clean === month.padStart(2, '0');
+        } else {
+          const monthLower = month.toLowerCase();
+          if (monthLower === clean) return true;
+          if (monthFullNames.some(m => m.startsWith(monthLower) && clean.startsWith(monthLower.substring(0, 3)))) return true;
+          if (monthAbbrNames.some(m => m === monthLower.substring(0, 3) && clean.startsWith(m))) return true;
+          return false;
+        }
+      };
+
+      const isDayWord = (wordText) => {
+        if (!day) return false;
+        const clean = cleanWord(wordText);
+        return clean === day || clean === day.padStart(2, '0');
+      };
+
+      const yearCandidates = words.filter((w) => {
+        const clean = cleanWord(w.text);
+        return clean === year || clean.includes(year);
+      });
+
+      log(`  [findOcrDatePosition] 年份候选词数量: ${yearCandidates.length}`);
+      yearCandidates.forEach((w, i) => {
+        log(`    ${i + 1}. "${w.text}" @ (${w.bbox.x0.toFixed(1)}, ${w.bbox.y0.toFixed(1)}) - (${w.bbox.x1.toFixed(1)}, ${w.bbox.y1.toFixed(1)})`);
+      });
+
+      if (yearCandidates.length === 0) return null;
+
+      let bestResult = null;
+      let bestScore = 0;
+
+      for (const yearWord of yearCandidates) {
+        const yearCenterY = (yearWord.bbox.y0 + yearWord.bbox.y1) / 2;
+        const yearHeight = yearWord.bbox.y1 - yearWord.bbox.y0;
+        const yThreshold = Math.max(yearHeight * 2, 20);
+        const xThreshold = Math.max(yearHeight * 8, 100);
+
+        const nearbyWords = words.filter((w) => {
+          const wCenterY = (w.bbox.y0 + w.bbox.y1) / 2;
+          const wCenterX = (w.bbox.x0 + w.bbox.x1) / 2;
+          const yearCenterX = (yearWord.bbox.x0 + yearWord.bbox.x1) / 2;
+          return Math.abs(wCenterY - yearCenterY) < yThreshold &&
+                 Math.abs(wCenterX - yearCenterX) < xThreshold;
+        });
+
+        nearbyWords.sort((a, b) => a.bbox.x0 - b.bbox.x0);
+
+        let hasMonth = false;
+        let hasDay = false;
+        const dateComponentWords = [yearWord];
+
+        for (const w of nearbyWords) {
+          if (w === yearWord) continue;
+          if (isMonthWord(w.text)) {
+            hasMonth = true;
+            dateComponentWords.push(w);
+            log(`    找到月份词: "${w.text}"`);
+          }
+          if (isDayWord(w.text)) {
+            hasDay = true;
+            dateComponentWords.push(w);
+            log(`    找到日期词: "${w.text}"`);
+          }
+        }
+
+        let score = 1;
+        if (hasMonth) score += 3;
+        if (hasDay) score += 2;
+
+        log(`    得分: ${score} (年份=1, 月份+3, 日期+2)`);
+
+        if (score > bestScore && score >= 3) {
+          bestScore = score;
+          
+          const xs = dateComponentWords.map(w => w.bbox.x0);
+          const xEnds = dateComponentWords.map(w => w.bbox.x1);
+          const ys = dateComponentWords.map(w => w.bbox.y0);
+          const yEnds = dateComponentWords.map(w => w.bbox.y1);
+          
+          const pad = 4;
+          bestResult = {
+            x: Math.min(...xs) - pad,
+            y: Math.min(...ys) - pad,
+            width: Math.max(...xEnds) - Math.min(...xs) + pad * 2,
+            height: Math.max(...yEnds) - Math.min(...ys) + pad * 2,
+          };
+        }
+      }
+
+      if (bestResult) {
+        log(`  [findOcrDatePosition] 最佳结果: x=${bestResult.x.toFixed(1)}, y=${bestResult.y.toFixed(1)}, w=${bestResult.width.toFixed(1)}, h=${bestResult.height.toFixed(1)}, score=${bestScore}`);
+      } else {
+        log(`  [findOcrDatePosition] 未找到匹配位置`);
+      }
+
+      return bestResult;
+    }
+
+    async function main() {
+      try {
+        statusEl.textContent = '加载PDF...';
+        log('=' .repeat(60));
+        log('COF PDF OCR 测试');
+        log('=' .repeat(60));
+
+        // 加载PDF
+        const resp = await fetch('/test-cof.pdf');
+        const pdfBytes = new Uint8Array(await resp.arrayBuffer());
+        log(`PDF大小: ${(pdfBytes.length / 1024).toFixed(1)} KB`);
+
+        const pdf = await pdfjsLib.getDocument({ data: pdfBytes }).promise;
+        log(`页数: ${pdf.numPages}`);
+
+        const pageNum = 1;
+        const scale = 3.0;
+        log(`\n渲染第 ${pageNum} 页 (scale=${scale})...`);
+        
+        const page = await pdf.getPage(pageNum);
+        const viewport = page.getViewport({ scale });
+        
+        log(`视口尺寸: ${viewport.width.toFixed(0)} x ${viewport.height.toFixed(0)} px`);
+        log(`页面尺寸: ${viewport.width / scale} x ${viewport.height / scale} pt`);
+        log(`变换矩阵: [${viewport.transform.join(', ')}]`);
+
+        const canvas = document.getElementById('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d');
+        
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        log('渲染完成');
+
+        // OCR识别
+        log('\nOCR识别中...');
+        statusEl.textContent = 'OCR识别中...';
+        
+        const worker = await Tesseract.createWorker('eng');
+        const result = await worker.recognize(canvas);
+        
+        log(`OCR文本长度: ${result.data.text.length}`);
+        log(`OCR data 字段: ${Object.keys(result.data).join(', ')}`);
+        log(`OCR words: ${result.data.words ? result.data.words.length : 'undefined/null'}`);
+        log(`OCR lines: ${result.data.lines ? result.data.lines.length : 'undefined/null'}`);
+        log(`OCR symbols: ${result.data.symbols ? result.data.symbols.length : 'undefined/null'}`);
+        log(`OCR paragraphs: ${result.data.paragraphs ? result.data.paragraphs.length : 'undefined/null'}`);
+        
+        if (result.data.lines && result.data.lines.length > 0) {
+          log(`\n第一行详情:`);
+          const firstLine = result.data.lines[0];
+          log(`  line keys: ${Object.keys(firstLine).join(', ')}`);
+          log(`  line text: ${firstLine.text}`);
+          log(`  line words: ${firstLine.words ? firstLine.words.length : 'undefined/null'}`);
+          if (firstLine.words && firstLine.words.length > 0) {
+            log(`  第一个word:`, JSON.stringify(firstLine.words[0]));
+          }
+        }
+
+        log('\nOCR原始文本（前800字符）:');
+        log('-'.repeat(60));
+        log(result.data.text.substring(0, 800));
+        log('-'.repeat(60));
+
+        // 转换坐标
+        const ocrWords = result.data.words || [];
+        log(`\n转换OCR坐标到PDF用户空间...`);
+        
+        const convertedWords = [];
+        for (const w of ocrWords) {
+          const dx0 = w.bbox.x0 / scale;
+          const dx1 = w.bbox.x1 / scale;
+          const dyTop = w.bbox.y0 / scale;
+          const dyBot = w.bbox.y1 / scale;
+          
+          const pts = [
+            [dx0, dyTop], [dx1, dyTop], [dx0, dyBot], [dx1, dyBot]
+          ].map(([dx, dy]) => deviceToUser(viewport, dx, dy));
+          
+          const uxs = pts.map((p) => p[0]);
+          const uys = pts.map((p) => p[1]);
+          
+          convertedWords.push({
+            text: w.text,
+            confidence: w.confidence,
+            bbox: {
+              x0: Math.min(...uxs),
+              y0: Math.min(...uys),
+              x1: Math.max(...uxs),
+              y1: Math.max(...uys),
+            },
+          });
+        }
+        
+        log(`已转换 ${convertedWords.length} 个词的坐标`);
+
+        // 显示包含年份的词
+        log('\n包含年份的词（2024/2025/2026）:');
+        const yearWords = convertedWords.filter(w => /20(24|25|26)/.test(w.text));
+        log(`找到 ${yearWords.length} 个包含年份的词`);
+        yearWords.slice(0, 20).forEach((w, i) => {
+          log(`  ${i + 1}. "${w.text}" (conf: ${w.confidence.toFixed(0)}%)`);
+          log(`     bbox: (${w.bbox.x0.toFixed(1)}, ${w.bbox.y0.toFixed(1)}) - (${w.bbox.x1.toFixed(1)}, ${w.bbox.y1.toFixed(1)})`);
+        });
+
+        // 测试日期匹配
+        log('\n测试日期位置匹配:');
+        const testDates = [
+          '1 November 2026',
+          '01 November 2026',
+          '1 Nov 2026',
+          'November 1, 2026',
+          '01/11/2026',
+          '1/11/2026',
+          '2026-11-01',
+        ];
+
+        for (const testDate of testDates) {
+          log(`\n  测试: "${testDate}"`);
+          const pos = findOcrDatePosition(convertedWords, testDate);
+          if (pos) {
+            log(`  ✅ 找到位置: x=${pos.x.toFixed(1)}, y=${pos.y.toFixed(1)}, w=${pos.width.toFixed(1)}, h=${pos.height.toFixed(1)}`);
+            
+            // 在canvas上画框验证
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 3;
+            
+            // 把用户空间坐标转回canvas坐标
+            const userX0 = pos.x;
+            const userY0 = pos.y; // 底部
+            const userX1 = pos.x + pos.width;
+            const userY1 = pos.y + pos.height; // 顶部
+            
+            const [cx0, cyTop0] = userToDevice(viewport, userX0, userY1);
+            const [cx1, cyBot1] = userToDevice(viewport, userX1, userY0);
+            
+            ctx.strokeRect(cx0, cyTop0, cx1 - cx0, cyBot1 - cyTop0);
+            log(`  Canvas坐标: x=${cx0.toFixed(1)}, y=${cyTop0.toFixed(1)}, w=${(cx1-cx0).toFixed(1)}, h=${(cyBot1-cyTop0).toFixed(1)}`);
+          } else {
+            log(`  ❌ 未找到位置`);
+          }
+        }
+
+        await worker.terminate();
+        
+        statusEl.textContent = '测试完成';
+        log('\n' + '='.repeat(60));
+        log('测试完成！红色框是识别到的日期位置');
+        log('='.repeat(60));
+
+      } catch (e) {
+        console.error(e);
+        log('ERROR: ' + e.message);
+        log(e.stack);
+        statusEl.textContent = '测试失败';
+      }
+    }
+
+    function userToDevice(vp, ux, uy) {
+      const [a, b, c, d, e, f] = vp.transform;
+      const dx = a * ux + c * uy + e;
+      const dy = b * ux + d * uy + f;
+      return [dx, dy];
+    }
+
+    main();
+  </script>
+</body>
+</html>
