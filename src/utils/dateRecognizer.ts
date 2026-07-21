@@ -170,7 +170,7 @@ function ocrWordsToUnified(
   words: OcrWord[],
   page: number
 ): Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }> {
-  return words.map((w) => ({
+  const result = words.map((w) => ({
     str: cleanInvisible(w.text),
     x0: w.bbox.x0,
     y: w.bbox.y1,
@@ -178,6 +178,16 @@ function ocrWordsToUnified(
     height: w.bbox.y1 - w.bbox.y0,
     page,
   }));
+  
+  const dateDigits = result.filter(i => i.str.match(/^\d{1,2}$/));
+  if (dateDigits.length > 0) {
+    console.log(`[ocrWordsToUnified] 单/两位数词: ${dateDigits.length}个`);
+    for (const d of dateDigits) {
+      console.log(`  "${d.str}" x0=${d.x0.toFixed(2)}, y=${d.y.toFixed(2)}, height=${d.height.toFixed(2)}`);
+    }
+  }
+  
+  return result;
 }
 
 export function recognizeDatesFromUnified(

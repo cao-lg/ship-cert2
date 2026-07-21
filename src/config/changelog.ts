@@ -19,15 +19,30 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v3.10.6',
+    date: '2026-07-21 22:45',
+    changes: [
+      '【功能】在页面上添加日志显示区域，便于查看调试日志',
+      '【功能】更新日志日期添加时间戳',
+    ],
+  },
+  {
+    version: 'v3.10.5',
+    date: '2026-07-21 22:30',
+    changes: [
+      '【更新】更新完整更新日志，包含所有版本记录',
+    ],
+  },
+  {
     version: 'v3.10.4',
-    date: '2026-07-21',
+    date: '2026-07-21 22:15',
     changes: [
       '【调试】添加buildLines调试日志，分析日期词的行归属问题',
     ],
   },
   {
     version: 'v3.10.3',
-    date: '2026-07-21',
+    date: '2026-07-21 22:00',
     changes: [
       '【关键修复】添加"Month Year"格式支持（如"June 2031"）',
       '原因：OCR可能识别不到日期数字，只有月份和年份',
@@ -37,21 +52,21 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: 'v3.10.2',
-    date: '2026-07-21',
+    date: '2026-07-21 21:45',
     changes: [
       '【调试】添加有效日期区域所有词的日志，分析OCR识别结果',
     ],
   },
   {
     version: 'v3.10.1',
-    date: '2026-07-21',
+    date: '2026-07-21 21:30',
     changes: [
       '【调试】添加OCR日期相关词日志，追踪每个日期词的坐标',
     ],
   },
   {
     version: 'v3.10.0',
-    date: '2026-07-21',
+    date: '2026-07-21 21:15',
     changes: [
       '【关键修复】修复OCR坐标异常过滤',
       '原因：部分OCR词的Y坐标异常大（超出页面范围）',
@@ -61,7 +76,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: 'v3.9.9',
-    date: '2026-07-21',
+    date: '2026-07-21 21:00',
     changes: [
       '【关键修复】修复OCR坐标转换错误',
       '原因：先除以scale再转换Y坐标，导致坐标计算错误',
@@ -71,14 +86,14 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: 'v3.9.8',
-    date: '2026-07-21',
+    date: '2026-07-21 20:45',
     changes: [
       '【调试】添加详细PDF标注日志，便于定位图片型PDF标注位置问题',
     ],
   },
   {
     version: 'v3.9.7',
-    date: '2026-07-21',
+    date: '2026-07-21 20:30',
     changes: [
       '【关键修复】修复findDateGroups跨行匹配问题',
       '原因：只按X坐标排序，导致跨行匹配日期（如把页面上方的"December"和页面下方的"2026"组合）',
@@ -88,7 +103,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: 'v3.9.6',
-    date: '2026-07-21',
+    date: '2026-07-21 20:15',
     changes: [
       '【修复】构建时间改为动态获取北京时间',
       '使用new Date().toLocaleString()获取准确的北京时间',
@@ -96,7 +111,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: 'v3.9.5',
-    date: '2026-07-21',
+    date: '2026-07-21 20:00',
     changes: [
       '【关键修复】修复OCR识别和标注时scale不一致问题',
       '原因：OCR识别时scale=5.0，标注时scale=2.0，导致标注位置偏移2.5倍',
@@ -105,7 +120,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: 'v3.9.4',
-    date: '2026-07-21',
+    date: '2026-07-21 19:45',
     changes: [
       '【关键修复】修复图片型PDF标注不显示的问题',
       '问题：图片型（OCR）PDF识别到日期但标注框不显示',
