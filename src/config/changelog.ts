@@ -1,7 +1,15 @@
 // 更新日志配置
-// 每次部署更新时修改此文件
+// 构建时间由构建脚本自动生成
 
-export const BUILD_TIMESTAMP = '2026-07-21 09:00:00 北京时间';
+export const BUILD_TIMESTAMP = new Date().toLocaleString('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+}).replace(/\//g, '-') + ' 北京时间';
 
 export interface ChangelogEntry {
   version: string;
