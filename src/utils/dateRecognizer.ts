@@ -167,6 +167,8 @@ export function recognizeDatesFromUnified(
   }
 
   const WIN = 15;
+  
+  const negativeKeywords = ['Renewal verification', 'Renewal', 'Verification', 'on which this certificate is based'];
 
   for (const pageStr of Object.keys(allPageDates)) {
     const page = parseInt(pageStr);
@@ -176,6 +178,19 @@ export function recognizeDatesFromUnified(
     for (const dg of pageDates) {
       let bestType: DateType | null = null;
       let bestScore = -Infinity;
+
+      for (let li = Math.max(0, dg.li - WIN); li <= Math.min(lines.length - 1, dg.li + WIN); li++) {
+        const line = lines[li];
+        const n = normSp(line.text);
+        
+        for (const negKw of negativeKeywords) {
+          if (n.includes(normSp(negKw))) {
+            bestScore = -Infinity;
+            break;
+          }
+        }
+        if (bestScore === -Infinity) break;
+      }
 
       for (const [dateType, info] of Object.entries(DATE_TYPE_INFO)) {
         for (const keyword of info.keywords) {
