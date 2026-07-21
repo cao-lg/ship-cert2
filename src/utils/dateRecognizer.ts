@@ -218,6 +218,11 @@ export function recognizeDatesFromUnified(
             foundSameLineMatch = true;
             let score = 50 + Math.min(kwNorm.length / 10, 3);
             if (expiryHighPriorityKeywords.includes(keyword)) score += 10;
+            
+            if (dateType === 'EXPIRY' && (hasRenewal || hasVerification || hasCompletion)) {
+              score -= contextPenalty;
+            }
+            
             if (score > bestScore) {
               bestScore = score;
               bestType = dateType as DateType;
@@ -245,7 +250,7 @@ export function recognizeDatesFromUnified(
               const distPenalty = dist * 2;
 
               let score = kwWeight + priorityBonus + afterBonus - distPenalty;
-              if (dateType === 'EXPIRY' && (hasRenewal || hasVerification)) {
+              if (dateType === 'EXPIRY' && (hasRenewal || hasVerification || hasCompletion)) {
                 score -= contextPenalty;
               }
 

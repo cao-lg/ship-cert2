@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-21 07:00:00 北京时间';
+export const BUILD_TIMESTAMP = '2026-07-21 08:00:00 北京时间';
 
 export interface ChangelogEntry {
   version: string;
@@ -11,18 +11,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: 'v3.9.1',
+    version: 'v3.9.2',
     date: '2026-07-21',
     changes: [
-      '【关键修复】彻底解决ISSC证书日期识别错误',
-      '问题："Date of Renewal verification"日期被误识别为有效日期',
-      '原因：日期被拆分成多个token（包含空格），无法匹配；跨行匹配时权重过低',
+      '【关键修复】修复LL/REG证书日期类型误识别',
+      '问题："Completion date of survey"日期被识别为有效日期，"Provisionally registered on"日期被识别为有效日期',
       '解决：',
-      '1. findDateGroups跳过空格token，支持1-5个非空格token组合',
-      '2. toIso增加不带逗号的日期格式支持（"May 12 2028"）',
-      '3. 同行匹配优先：先检查同行关键词，再跨行查找',
-      '4. 上下文惩罚：日期所在行包含"Renewal/Verification/Completion"时，降低跨行匹配EXPIRY的得分',
-      '最终：ISSC证书正确识别2028-05-12(有效日期)和2023-02-16(签发日期)',
+      '1. 同行匹配时也应用上下文惩罚：日期所在行包含"Renewal/Verification/Completion"时，EXPIRY匹配得分扣50',
+      '2. 添加"Completion date of survey"和"Completion date"为年检日期关键词',
+      '3. "Completion date"日期现在正确识别为年检日期而非有效日期',
     ],
   },
   {
