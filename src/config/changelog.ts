@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-21 03:30:00 北京时间';
+export const BUILD_TIMESTAMP = '2026-07-21 04:00:00 北京时间';
 
 export interface ChangelogEntry {
   version: string;
@@ -11,12 +11,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: 'v3.7.0',
+    version: 'v3.8.1',
     date: '2026-07-21',
     changes: [
-      '修复日期识别错误：添加负面关键词排除（Renewal verification、Verification）',
-      '修复ISSC证书框标错位置问题：不再标注Renewal verification日期',
-      '合并顺序已按要求配置：REG→MM→LL→SC→ISSC→IOPP→TON→SMC→CLC→DOC→COF→SE→SR',
+      '【关键修复】修复buildLines行顺序颠倒导致日期识别错误',
+      '原因：排序逻辑导致页面底部的行排在前面，关键词与日期无法正确关联',
+      '解决：改为先升序排列后反转，确保行从上到下正确排序',
+      '彻底解决ISSC证书中"May 12, 2028"未被识别的问题',
     ],
   },
   {
