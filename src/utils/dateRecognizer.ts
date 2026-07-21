@@ -271,7 +271,7 @@ export function recognizeDatesFromUnified(
 
       if (bestType && bestScore > 0) {
         const pad = 10;
-        dates.push({
+        const dateObj = {
           type: bestType,
           date: dg.iso,
           confidence: Math.min(0.95, baseConfidence + bestScore * 0.02),
@@ -283,7 +283,11 @@ export function recognizeDatesFromUnified(
             height: dg.yTop - dg.yBot + pad * 2,
           },
           rawText: dg.iso,
-        });
+        };
+        console.log(`[日期识别] 第${page}页 ${bestType} ${dg.iso}:`);
+        console.log(`  yTop=${dg.yTop.toFixed(2)}, yBot=${dg.yBot.toFixed(2)}`);
+        console.log(`  position: x=${dateObj.position.x.toFixed(2)}, y=${dateObj.position.y.toFixed(2)}, w=${dateObj.position.width.toFixed(2)}, h=${dateObj.position.height.toFixed(2)}`);
+        dates.push(dateObj);
       }
     }
   }

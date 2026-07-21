@@ -88,12 +88,22 @@ export async function annotateImagePdf(
     const pageDates = datesByPage.get(pageNum) || [];
     const canvasHeight = viewport.height;
     
+    console.log(`[PDF标注] 第${pageNum}页, scale=${scale}`);
+    console.log(`[PDF标注] canvas尺寸: ${viewport.width} x ${viewport.height}`);
+    console.log(`[PDF标注] 用户空间尺寸: ${pageWidth} x ${pageHeight}`);
+    console.log(`[PDF标注] 待标注日期数: ${pageDates.length}`);
+    
     for (const d of pageDates) {
       const pos = d.position;
       const x = pos.x * scale;
       const w = pos.width * scale;
       const h = pos.height * scale;
       const y = canvasHeight - (pos.y + pos.height) * scale;
+      
+      console.log(`[PDF标注] ${d.type} ${d.date}:`);
+      console.log(`  用户空间: x=${pos.x.toFixed(2)}, y=${pos.y.toFixed(2)}, w=${pos.width.toFixed(2)}, h=${pos.height.toFixed(2)}`);
+      console.log(`  canvas绘制: x=${x.toFixed(0)}, y=${y.toFixed(0)}, w=${w.toFixed(0)}, h=${h.toFixed(0)}`);
+      console.log(`  位置: ${y < viewport.height / 2 ? '上半部分' : '下半部分'}`);
       
       ctx.strokeStyle = 'red';
       ctx.lineWidth = 3;
