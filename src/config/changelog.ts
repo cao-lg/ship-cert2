@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-21 05:00:00 北京时间';
+export const BUILD_TIMESTAMP = '2026-07-21 06:00:00 北京时间';
 
 export interface ChangelogEntry {
   version: string;
@@ -11,13 +11,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: 'v3.8.2',
+    version: 'v3.9.0',
     date: '2026-07-21',
     changes: [
-      '【关键修复】添加负面关键词排除机制，修复ISSC证书日期识别错误',
-      '问题："Renewal verification date"被误识别为签发日期',
-      '解决：排除包含"Renewal verification"、"Renewal"、"Verification"等词附近的日期',
-      '确保只标注"valid until"对应的有效日期（2028年5月12日）',
+      '【关键修复】移除负面关键词排除机制，改用大幅提高有效日期关键词权重',
+      '问题：负面关键词范围太广，导致所有日期都被排除',
+      '解决：将"valid until"等有效日期关键词优先级从3提高到10',
+      '同行匹配加分从5提高到10，确保"this Certificate is valid until May 12, 2028"优先匹配',
+      '同时保留签发日期和有效日期的识别',
     ],
   },
   {
