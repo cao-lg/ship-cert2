@@ -179,17 +179,16 @@ export function recognizeDatesFromUnified(
       let bestType: DateType | null = null;
       let bestScore = -Infinity;
 
-      for (let li = Math.max(0, dg.li - WIN); li <= Math.min(lines.length - 1, dg.li + WIN); li++) {
-        const line = lines[li];
-        const n = normSp(line.text);
-        
+      // 只检查日期所在行是否有负面关键词（避免影响其他行的日期）
+      const dateLine = lines[dg.li];
+      if (dateLine) {
+        const n = normSp(dateLine.text);
         for (const negKw of negativeKeywords) {
           if (n.includes(normSp(negKw))) {
             bestScore = -Infinity;
             break;
           }
         }
-        if (bestScore === -Infinity) break;
       }
 
       for (const [dateType, info] of Object.entries(DATE_TYPE_INFO)) {
