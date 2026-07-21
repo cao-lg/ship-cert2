@@ -53,8 +53,6 @@ export async function annotatePdf(
   return pdfDoc.save();
 }
 
-// 图片型PDF标注：渲染到Canvas → 直接在Canvas上画框 → 转成PDF
-// 完全避免坐标转换，OCR的设备坐标直接用（乘以scale得到像素坐标）
 export async function annotateImagePdf(
   pdfBytes: Uint8Array | ArrayBuffer,
   dates: RecognizedDate[],
@@ -76,6 +74,7 @@ export async function annotateImagePdf(
   for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
     const page = await pdf.getPage(pageNum);
     const viewport = page.getViewport({ scale });
+    const pageHeight = viewport.height;
 
     const canvas = document.createElement('canvas');
     canvas.width = viewport.width;
@@ -85,14 +84,12 @@ export async function annotateImagePdf(
     await page.render({ canvasContext: ctx, viewport }).promise;
 
     const pageDates = datesByPage.get(pageNum) || [];
-    const pageHeight = viewport.height;
     for (const d of pageDates) {
       const pos = d.position;
       const x = pos.x * scale;
-      const yTop = (pos.y + pos.height) * scale;
       const w = pos.width * scale;
       const h = pos.height * scale;
-      const y = pageHeight - yTop;
+      const y = pageHeight - (pos.y + pos.height) * scale;
       
       ctx.strokeStyle = 'red';
       ctx.lineWidth = 3;
@@ -102,7 +99,12 @@ export async function annotateImagePdf(
     }
 
     const pngData = canvas.toDataURL('image/png');
-    const pngBytes = await fetch(pngData).then((r) => r.arrayBuffer());
+    const base64 = pngData.split(',')[1];
+    const binaryString = atob(base64);
+    const pngBytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      pngBytes[i] = binaryString.charCodeAt(i);
+    }
     const pngImage = await outputPdf.embedPng(pngBytes);
 
     const origViewport = page.getViewport({ scale: 1.0 });

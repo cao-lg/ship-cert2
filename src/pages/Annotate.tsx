@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Download, ArrowRight, Ship, Calendar } from 'lucide-react';
 import { useCertStore } from '@/store/certStore';
 import { renderPageToCanvas, getPdfPageCount } from '@/utils/pdfParser';
-import { annotatePdf } from '@/utils/pdfAnnotator';
+import { annotatePdf, annotateImagePdf } from '@/utils/pdfAnnotator';
 import { CertType, CERT_TYPE_INFO, DATE_TYPE_INFO, RecognizedDate, CertFile } from '@/types';
 
 export default function AnnotatePage() {
@@ -42,7 +42,12 @@ export default function AnnotatePage() {
   // 重新标注
   const reAnnotate = useCallback(async (file: CertFile) => {
     if (file.dates.length === 0) return;
-    const annotated = await annotatePdf(file.pdfBytes, file.dates);
+    const datesToAnnotate = file.dates.filter(d => d.type === 'EXPIRY' || d.type === 'ANNUAL_SURVEY');
+    if (datesToAnnotate.length === 0) return;
+    
+    const annotated = file.isImageBased
+      ? await annotateImagePdf(file.pdfBytes, datesToAnnotate, 2.0)
+      : await annotatePdf(file.pdfBytes, datesToAnnotate);
     updateFile(file.id, { annotatedPdfBytes: annotated });
   }, [updateFile]);
 
@@ -53,7 +58,9 @@ export default function AnnotatePage() {
     if (file) {
       const updatedDates = [...file.dates];
       updatedDates[dateIndex] = { ...updatedDates[dateIndex], date: newDate };
-      annotatePdf(file.pdfBytes, updatedDates).then((annotated) => {
+      const datesToAnnotate = updatedDates.filter(d => d.type === 'EXPIRY' || d.type === 'ANNUAL_SURVEY');
+      const annotateFn = file.isImageBased ? annotateImagePdf : annotatePdf;
+      annotateFn(file.pdfBytes, datesToAnnotate, 2.0).then((annotated) => {
         updateFile(fileId, { annotatedPdfBytes: annotated });
       });
     }

@@ -1,7 +1,7 @@
 // 更新日志配置
 // 每次部署更新时修改此文件
 
-export const BUILD_TIMESTAMP = '2026-07-21 08:00:00 北京时间';
+export const BUILD_TIMESTAMP = '2026-07-21 09:00:00 北京时间';
 
 export interface ChangelogEntry {
   version: string;
@@ -11,15 +11,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: 'v3.9.2',
+    version: 'v3.9.4',
     date: '2026-07-21',
     changes: [
-      '【关键修复】修复LL/REG证书日期类型误识别',
-      '问题："Completion date of survey"日期被识别为有效日期，"Provisionally registered on"日期被识别为有效日期',
-      '解决：',
-      '1. 同行匹配时也应用上下文惩罚：日期所在行包含"Renewal/Verification/Completion"时，EXPIRY匹配得分扣50',
-      '2. 添加"Completion date of survey"和"Completion date"为年检日期关键词',
-      '3. "Completion date"日期现在正确识别为年检日期而非有效日期',
+      '【关键修复】修复图片型PDF标注不显示的问题',
+      '问题：图片型（OCR）PDF识别到日期但标注框不显示',
+      '修复：',
+      '1. 改用atob直接解码base64获取PNG字节，替代fetch(dataURL)方式，提高兼容性',
+      '2. 修复Annotate页面手动修改日期后的重新标注逻辑，正确区分图片型和文本型',
+      '3. 手动修改日期时只标注有效日期和年检日期（与初始处理一致）',
     ],
   },
   {
