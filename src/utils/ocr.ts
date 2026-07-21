@@ -99,6 +99,10 @@ export async function ocrPdfPage(
                     console.warn(`[OCR] 坐标异常，跳过: y0=${userY0.toFixed(2)}, y1=${userY1.toFixed(2)}, text="${w.text}"`);
                     continue;
                   }
+
+                  if (w.text.match(/\d{4}/) || w.text.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)$/i)) {
+                    console.log(`[OCR] 日期相关词: "${w.text}", deviceY=${dy0.toFixed(0)}-${dy1.toFixed(0)}, userY=${userY0.toFixed(2)}-${userY1.toFixed(2)}`);
+                  }
                   
                   words.push({
                     text: w.text,
