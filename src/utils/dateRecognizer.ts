@@ -326,8 +326,26 @@ export function recognizeDatesFromText(
   textItems: TextItem[],
   fullText: string
 ): RecognizedDate[] {
+  logger.info(`[recognizeDatesFromText] 文本型PDF，共 ${textItems.length} 个文本项`);
+  
+  const janLines = textItems.filter(item => 
+    item.text.match(/January|January|2026|2031|13|28|29/i)
+  );
+  if (janLines.length > 0) {
+    logger.info(`[recognizeDatesFromText] 包含日期关键词的行:`);
+    for (const item of janLines.slice(0, 15)) {
+      logger.debug(`  "${item.text}" x=${item.x.toFixed(2)}, y=${item.y.toFixed(2)}, page=${item.page}`);
+    }
+  }
+  
   const unified = textItemsToUnified(textItems);
-  return recognizeDatesFromUnified(unified, 0.85);
+  const dates = recognizeDatesFromUnified(unified, 0.85);
+  
+  if (dates.length === 0) {
+    logger.warn(`[recognizeDatesFromText] 未识别到日期，请检查日志`);
+  }
+  
+  return dates;
 }
 
 export function recognizeDatesFromOcr(
