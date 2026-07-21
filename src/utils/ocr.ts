@@ -75,7 +75,6 @@ export async function ocrPdfPage(
   // 设备空间 → 用户空间（PDF坐标系，左下角原点，Y轴向上）
   // 对于未旋转页面：y_user = viewport_height - y_device
   const vpHeight = viewport.height;
-  const deviceToUserY = (dy: number) => vpHeight - dy;
 
   const words: OcrWord[] = [];
 
@@ -89,17 +88,20 @@ export async function ocrPdfPage(
                 for (const w of line.words) {
                   const dx0 = w.bbox.x0 / scale;
                   const dx1 = w.bbox.x1 / scale;
-                  const dy0 = w.bbox.y0 / scale;  // 设备空间：顶部y（值小）
-                  const dy1 = w.bbox.y1 / scale;  // 设备空间：底部y（值大）
+                  const dy0 = w.bbox.y0;
+                  const dy1 = w.bbox.y1;
+                  
+                  const userY0 = (vpHeight - dy1) / scale;
+                  const userY1 = (vpHeight - dy0) / scale;
                   
                   words.push({
                     text: w.text,
                     confidence: w.confidence / 100,
                     bbox: {
                       x0: dx0,
-                      y0: deviceToUserY(dy1),  // 用户空间：底部y（值小）
+                      y0: userY0,
                       x1: dx1,
-                      y1: deviceToUserY(dy0),  // 用户空间：顶部y（值大）
+                      y1: userY1,
                     },
                   });
                 }
