@@ -30,12 +30,11 @@ export default function ExportPage() {
   const handleMergePdf = async () => {
     setExportingPdf(true);
     try {
-      const doneFiles = files.filter((f) => f.status === 'done');
-      // 优先使用标注后的PDF，否则使用原始PDF
-      const pdfInputs = doneFiles.map((f) => ({
-        bytes: f.annotatedPdfBytes ?? f.pdfBytes,
-        certType: f.certType,
-        subCertificates: f.subCertificates,
+      // 使用已排序的证书列表，确保合并顺序正确
+      const pdfInputs = sortedEntries.map((e) => ({
+        bytes: e.file.annotatedPdfBytes ?? e.file.pdfBytes,
+        certType: e.sub?.certType ?? e.file.certType,
+        subCertificates: e.file.subCertificates,
       }));
 
       if (pdfInputs.length === 0) {
