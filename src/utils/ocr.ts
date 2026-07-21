@@ -101,7 +101,11 @@ export async function ocrPdfPage(
                   }
 
                   if (w.text.match(/\d{4}/) || w.text.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)$/i)) {
-                    console.log(`[OCR] 日期相关词: "${w.text}", deviceY=${dy0.toFixed(0)}-${dy1.toFixed(0)}, userY=${userY0.toFixed(2)}-${userY1.toFixed(2)}`);
+                    console.log(`[OCR] 日期相关词: "${w.text}", deviceY=${dy0.toFixed(0)}-${dy1.toFixed(0)}, userY=${userY0.toFixed(2)}-${userY1.toFixed(2)}, x=${dx0.toFixed(2)}-${dx1.toFixed(2)}`);
+                  }
+                  
+                  if (userY0 > 380 && userY0 < 410) {
+                    console.log(`[OCR] 有效日期区域词: "${w.text}", x=${dx0.toFixed(2)}-${dx1.toFixed(2)}, y=${userY0.toFixed(2)}-${userY1.toFixed(2)}`);
                   }
                   
                   words.push({
