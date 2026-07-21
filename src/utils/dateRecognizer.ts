@@ -59,6 +59,12 @@ export function findDateGroups(
   const groups: Omit<DateGroup, 'li' | 'lineY'>[] = [];
   const sorted = [...items].sort((a, b) => a.y - b.y || a.x0 - b.x0);
 
+  const june2031Items = sorted.filter(i => i.str === 'June' || i.str === '2031');
+  console.log(`[findDateGroups] June/2031 items count: ${june2031Items.length}`);
+  for (const item of june2031Items) {
+    console.log(`  "${item.str}" y=${item.y.toFixed(2)}, x0=${item.x0.toFixed(2)}, height=${item.height.toFixed(2)}`);
+  }
+
   const isSameLine = (a: typeof items[0], b: typeof items[0]): boolean => {
     const maxY = Math.max(a.y, b.y);
     const minY = Math.min(a.y - a.height, b.y - b.height);
