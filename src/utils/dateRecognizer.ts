@@ -168,7 +168,7 @@ export function recognizeDatesFromUnified(
 
   const WIN = 15;
   
-  const negativeKeywords = ['Renewal verification', 'Renewal', 'Verification', 'on which this certificate is based'];
+  const highPriorityKeywords = ['Valid Until', 'Valid until', 'this Certificate is valid until', 'Date of Expiry', 'Expiry Date', 'Expires', 'expires on', 'Date of Issue', 'Issued at', 'Issued on', 'Annual Survey'];
 
   for (const pageStr of Object.keys(allPageDates)) {
     const page = parseInt(pageStr);
@@ -178,18 +178,6 @@ export function recognizeDatesFromUnified(
     for (const dg of pageDates) {
       let bestType: DateType | null = null;
       let bestScore = -Infinity;
-
-      // 只检查日期所在行是否有负面关键词（避免影响其他行的日期）
-      const dateLine = lines[dg.li];
-      if (dateLine) {
-        const n = normSp(dateLine.text);
-        for (const negKw of negativeKeywords) {
-          if (n.includes(normSp(negKw))) {
-            bestScore = -Infinity;
-            break;
-          }
-        }
-      }
 
       for (const [dateType, info] of Object.entries(DATE_TYPE_INFO)) {
         for (const keyword of info.keywords) {
@@ -206,11 +194,13 @@ export function recognizeDatesFromUnified(
             const dist = Math.abs(li - dg.li);
 
             const kwWeight = Math.min(kwNorm.length / 10, 3);
+            const isHighPriority = highPriorityKeywords.includes(keyword);
+            const priorityBonus = isHighPriority ? 3 : 0;
             const sameLineBonus = li === dg.li ? 5 : 0;
             const afterBonus = li > dg.li ? 0 : -2;
             const distPenalty = dist * 0.5;
 
-            const score = kwWeight + sameLineBonus + afterBonus - distPenalty - dy * 0.01;
+            const score = kwWeight + priorityBonus + sameLineBonus + afterBonus - distPenalty - dy * 0.01;
 
             if (score > bestScore) {
               bestScore = score;
