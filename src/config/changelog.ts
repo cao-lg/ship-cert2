@@ -19,6 +19,91 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v3.10.4',
+    date: '2026-07-21',
+    changes: [
+      '【调试】添加buildLines调试日志，分析日期词的行归属问题',
+    ],
+  },
+  {
+    version: 'v3.10.3',
+    date: '2026-07-21',
+    changes: [
+      '【关键修复】添加"Month Year"格式支持（如"June 2031"）',
+      '原因：OCR可能识别不到日期数字，只有月份和年份',
+      '解决：即使缺少日期，也能解析为当月第一天',
+      '添加findDateGroups调试日志',
+    ],
+  },
+  {
+    version: 'v3.10.2',
+    date: '2026-07-21',
+    changes: [
+      '【调试】添加有效日期区域所有词的日志，分析OCR识别结果',
+    ],
+  },
+  {
+    version: 'v3.10.1',
+    date: '2026-07-21',
+    changes: [
+      '【调试】添加OCR日期相关词日志，追踪每个日期词的坐标',
+    ],
+  },
+  {
+    version: 'v3.10.0',
+    date: '2026-07-21',
+    changes: [
+      '【关键修复】修复OCR坐标异常过滤',
+      '原因：部分OCR词的Y坐标异常大（超出页面范围）',
+      '解决：添加边界检查，跳过超出页面范围的异常坐标',
+      '【稳定性】添加页面处理错误捕获，避免"Invalid page request"崩溃',
+    ],
+  },
+  {
+    version: 'v3.9.9',
+    date: '2026-07-21',
+    changes: [
+      '【关键修复】修复OCR坐标转换错误',
+      '原因：先除以scale再转换Y坐标，导致坐标计算错误',
+      '解决：先转换Y坐标（设备空间→用户空间），再除以scale',
+      '修复后坐标范围正确（0-页面高度）',
+    ],
+  },
+  {
+    version: 'v3.9.8',
+    date: '2026-07-21',
+    changes: [
+      '【调试】添加详细PDF标注日志，便于定位图片型PDF标注位置问题',
+    ],
+  },
+  {
+    version: 'v3.9.7',
+    date: '2026-07-21',
+    changes: [
+      '【关键修复】修复findDateGroups跨行匹配问题',
+      '原因：只按X坐标排序，导致跨行匹配日期（如把页面上方的"December"和页面下方的"2026"组合）',
+      '解决：先按Y坐标排序，添加isSameLine函数检查同行',
+      '确保日期只在同行内组合',
+    ],
+  },
+  {
+    version: 'v3.9.6',
+    date: '2026-07-21',
+    changes: [
+      '【修复】构建时间改为动态获取北京时间',
+      '使用new Date().toLocaleString()获取准确的北京时间',
+    ],
+  },
+  {
+    version: 'v3.9.5',
+    date: '2026-07-21',
+    changes: [
+      '【关键修复】修复OCR识别和标注时scale不一致问题',
+      '原因：OCR识别时scale=5.0，标注时scale=2.0，导致标注位置偏移2.5倍',
+      '解决：标注时scale改为5.0，与OCR识别一致',
+    ],
+  },
+  {
     version: 'v3.9.4',
     date: '2026-07-21',
     changes: [
