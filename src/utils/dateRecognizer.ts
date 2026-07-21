@@ -153,7 +153,7 @@ function nearestDate(
 function textItemsToUnified(
   textItems: TextItem[]
 ): Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }> {
-  return textItems.map((item) => ({
+  const result = textItems.map((item) => ({
     str: cleanInvisible(item.text),
     x0: item.x,
     y: item.y + item.height,
@@ -161,6 +161,20 @@ function textItemsToUnified(
     height: item.height,
     page: item.page,
   }));
+
+  const dateItems = result.filter(i => i.str.match(/^\d{4}$/) || 
+    i.str.match(/^\d{1,2}$/) || 
+    i.str.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)$/i) ||
+    i.str.match(/^(Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/i));
+  
+  if (dateItems.length > 0) {
+    logger.info(`[textItemsToUnified] 文本型PDF找到 ${dateItems.length} 个日期相关词`);
+    for (const item of dateItems.slice(0, 10)) {
+      logger.debug(`  "${item.str}" x0=${item.x0.toFixed(2)}, y=${item.y.toFixed(2)}, page=${item.page}`);
+    }
+  }
+
+  return result;
 }
 
 function ocrWordsToUnified(
