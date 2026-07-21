@@ -98,10 +98,6 @@ export async function ocrPdfPage(
                     logger.warn(`[OCR] 坐标异常，跳过: y0=${userY0.toFixed(2)}, y1=${userY1.toFixed(2)}, text="${w.text}"`);
                     continue;
                   }
-
-                  if (w.text.match(/\d{4}/) || w.text.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)$/i)) {
-                    logger.debug(`[OCR] 日期相关词: "${w.text}", userY=${userY0.toFixed(2)}-${userY1.toFixed(2)}, x=${dx0.toFixed(2)}-${dx1.toFixed(2)}`);
-                  }
                   
                   words.push({
                     text: w.text,

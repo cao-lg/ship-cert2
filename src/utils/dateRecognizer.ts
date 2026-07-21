@@ -66,16 +66,6 @@ export function buildLines(
     line.x0 = Math.min(...line.items.map((i) => i.x0));
   }
 
-  const juneLine = lines.find(l => l.text.includes('June') && l.text.includes('2031'));
-  if (juneLine) {
-    logger.info(`[buildLines] June 2031所在行: "${juneLine.text}"`);
-    for (const item of juneLine.items) {
-      if (isDateRelevant(item.str)) {
-        logger.debug(`  "${item.str}" x0=${item.x0.toFixed(2)}, y=${item.y.toFixed(2)}, height=${item.height.toFixed(2)}`);
-      }
-    }
-  }
-
   lines.reverse();
 
   const plainText = lines.map((l) => l.text).join('\n');
@@ -107,7 +97,6 @@ export function findDateGroups(
     const yBot = Math.min(...arr.map((i) => i.y - i.height));
 
     groups.push({ x0, x1, yTop, yBot, iso });
-    logger.debug(`[findDateGroups] 组合成功: "${combo}" -> ${iso}`);
     return true;
   };
 
@@ -119,60 +108,21 @@ export function findDateGroups(
       continue;
     }
 
-    logger.debug(`[findDateGroups] 处理词 "${cur.str}" (索引${i}, y=${cur.y.toFixed(2)})`);
-
-    if (tryPush([cur])) { 
-      logger.debug(`  单词组合成功`);
-      i++; 
-      continue; 
-    }
+    if (tryPush([cur])) { i++; continue; }
 
     let j = skipNonDate(sorted, i + 1);
-    if (j < sorted.length) {
-      logger.debug(`  j=${j}, 词="${sorted[j].str}", y=${sorted[j].y.toFixed(2)}, isSameLine=${isSameLine(cur, sorted[j])}`);
-      if (isSameLine(cur, sorted[j]) && tryPush([cur, sorted[j]])) { 
-        logger.debug(`  两词组合成功`);
-        i = j + 1; 
-        continue; 
-      }
-    }
+    if (j < sorted.length && isSameLine(cur, sorted[j]) && tryPush([cur, sorted[j]])) { i = j + 1; continue; }
 
     let k = j < sorted.length ? skipNonDate(sorted, j + 1) : sorted.length;
-    if (k < sorted.length) {
-      logger.debug(`  k=${k}, 词="${sorted[k].str}", y=${sorted[k].y.toFixed(2)}, isSameLine=${isSameLine(cur, sorted[k])}`);
-      if (isSameLine(cur, sorted[k]) && tryPush([cur, sorted[j], sorted[k]])) { 
-        logger.debug(`  三词组合成功`);
-        i = k + 1; 
-        continue; 
-      }
-    }
+    if (k < sorted.length && isSameLine(cur, sorted[k]) && tryPush([cur, sorted[j], sorted[k]])) { i = k + 1; continue; }
 
     let l = k < sorted.length ? skipNonDate(sorted, k + 1) : sorted.length;
-    if (l < sorted.length) {
-      logger.debug(`  l=${l}, 词="${sorted[l].str}", y=${sorted[l].y.toFixed(2)}`);
-      if (isSameLine(cur, sorted[l]) && tryPush([cur, sorted[j], sorted[k], sorted[l]])) { 
-        logger.debug(`  四词组合成功`);
-        i = l + 1; 
-        continue; 
-      }
-    }
+    if (l < sorted.length && isSameLine(cur, sorted[l]) && tryPush([cur, sorted[j], sorted[k], sorted[l]])) { i = l + 1; continue; }
 
     let m = l < sorted.length ? skipNonDate(sorted, l + 1) : sorted.length;
-    if (m < sorted.length) {
-      logger.debug(`  m=${m}, 词="${sorted[m].str}", y=${sorted[m].y.toFixed(2)}`);
-      if (isSameLine(cur, sorted[m]) && tryPush([cur, sorted[j], sorted[k], sorted[l], sorted[m]])) { 
-        logger.debug(`  五词组合成功`);
-        i = m + 1; 
-        continue; 
-      }
-    }
+    if (m < sorted.length && isSameLine(cur, sorted[m]) && tryPush([cur, sorted[j], sorted[k], sorted[l], sorted[m]])) { i = m + 1; continue; }
 
-    logger.debug(`  所有组合都失败，跳过`);
     i++;
-  }
-
-  if (groups.length > 0) {
-    logger.info(`[findDateGroups] 找到 ${groups.length} 个日期组`);
   }
 
   return groups;
