@@ -1,15 +1,17 @@
 // 更新日志配置
 // 构建时间由构建脚本自动生成
 
-export const BUILD_TIMESTAMP = new Date().toLocaleString('zh-CN', {
-  timeZone: 'Asia/Shanghai',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-}).replace(/\//g, '-') + ' 北京时间';
+export function getBuildTimestamp(): string {
+  return new Date().toLocaleString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).replace(/\//g, '-') + ' 北京时间';
+}
 
 export interface ChangelogEntry {
   version: string;
@@ -18,6 +20,16 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: 'v3.11.0',
+    date: '2026-07-21 23:30',
+    changes: [
+      '【关键修复】修复日期识别组合逻辑，添加详细调试日志追踪"01 June 2031"等日期的解析过程',
+      '【功能】在页面底部添加调试日志面板，支持复制和清空日志',
+      '【修复】构建时间改为动态获取北京时间，解决编译时硬编码问题',
+      '【修复】OCR坐标转换逻辑：先转换设备空间坐标再除以scale',
+    ],
+  },
   {
     version: 'v3.10.6',
     date: '2026-07-21 22:45',

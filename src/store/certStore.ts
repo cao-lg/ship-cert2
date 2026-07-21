@@ -5,9 +5,16 @@ function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
 }
 
+export interface LogEntry {
+  timestamp: string;
+  level: 'info' | 'warn' | 'error' | 'debug';
+  message: string;
+}
+
 interface CertStore {
   files: CertFile[];
   activeFileId: string | null;
+  logs: LogEntry[];
   addFile: (file: File) => Promise<CertFile>;
   removeFile: (id: string) => void;
   updateFile: (id: string, updates: Partial<CertFile>) => void;
@@ -17,11 +24,15 @@ interface CertStore {
   getSortedFiles: () => CertFile[];
   getSortedSubCertificates: () => Array<{ file: CertFile; sub: SubCertificate | null }>;
   clearAll: () => void;
+  addLog: (level: LogEntry['level'], message: string) => void;
+  clearLogs: () => void;
+  copyLogs: () => void;
 }
 
 export const useCertStore = create<CertStore>((set, get) => ({
   files: [],
   activeFileId: null,
+  logs: [],
 
   addFile: async (file: File) => {
     const arrayBuffer = await file.arrayBuffer();
@@ -117,6 +128,31 @@ export const useCertStore = create<CertStore>((set, get) => ({
 
   clearAll: () => {
     set({ files: [], activeFileId: null });
+  },
+
+  addLog: (level: LogEntry['level'], message: string) => {
+    const timestamp = new Date().toLocaleString('zh-CN', {
+      timeZone: 'Asia/Shanghai',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }).replace(/\//g, '-');
+    set((state) => ({
+      logs: [...state.logs, { timestamp, level, message }],
+    }));
+    console[level](`[${timestamp}] ${message}`);
+  },
+
+  clearLogs: () => {
+    set({ logs: [] });
+  },
+
+  copyLogs: () => {
+    const logs = get().logs;
+    const text = logs.map((log) => `[${log.level.toUpperCase()}] ${log.timestamp} - ${log.message}`).join('\n');
+    navigator.clipboard.writeText(text).catch(console.error);
   },
 }));
 

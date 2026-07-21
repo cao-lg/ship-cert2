@@ -73,8 +73,9 @@ export function findDateGroups(
   const groups: Omit<DateGroup, 'li' | 'lineY'>[] = [];
   const sorted = [...items].sort((a, b) => a.y - b.y || a.x0 - b.x0);
 
-  const june2031Items = sorted.filter(i => i.str === 'June' || i.str === '2031');
-  console.log(`[findDateGroups] June/2031 items count: ${june2031Items.length}`);
+  console.log(`[findDateGroups] 总词数: ${sorted.length}`);
+  const june2031Items = sorted.filter(i => i.str === 'June' || i.str === '2031' || i.str === '01');
+  console.log(`[findDateGroups] 日期相关词: ${june2031Items.length}个`);
   for (const item of june2031Items) {
     console.log(`  "${item.str}" y=${item.y.toFixed(2)}, x0=${item.x0.toFixed(2)}, height=${item.height.toFixed(2)}`);
   }
@@ -88,7 +89,10 @@ export function findDateGroups(
   const tryPush = (arr: typeof items): boolean => {
     const combo = arr.map((i) => normToken(i.str)).join(' ');
     const iso = toIso(combo);
-    if (!iso) return false;
+    if (!iso) {
+      console.log(`[findDateGroups] 组合失败: "${combo}"`);
+      return false;
+    }
 
     const x0 = Math.min(...arr.map((i) => i.x0));
     const x1 = Math.max(...arr.map((i) => i.x0 + i.width));
@@ -96,6 +100,7 @@ export function findDateGroups(
     const yBot = Math.min(...arr.map((i) => i.y - i.height));
 
     groups.push({ x0, x1, yTop, yBot, iso });
+    console.log(`[findDateGroups] 组合成功: "${combo}" -> ${iso}`);
     return true;
   };
 
@@ -107,25 +112,36 @@ export function findDateGroups(
       continue;
     }
 
+    console.log(`[findDateGroups] 处理第${i}个词: "${cur.str}"`);
+
     if (tryPush([cur])) { i++; continue; }
 
     let j = i + 1;
     while (j < sorted.length && sorted[j].str.trim() === '') j++;
+    console.log(`[findDateGroups]   j=${j}, 词="${sorted[j]?.str || '超出范围'}"`);
     if (j < sorted.length && isSameLine(cur, sorted[j]) && tryPush([cur, sorted[j]])) { i = j + 1; continue; }
 
     let k = j + 1;
     while (k < sorted.length && sorted[k].str.trim() === '') k++;
+    console.log(`[findDateGroups]   k=${k}, 词="${sorted[k]?.str || '超出范围'}"`);
     if (k < sorted.length && isSameLine(cur, sorted[k]) && tryPush([cur, sorted[j], sorted[k]])) { i = k + 1; continue; }
 
     let l = k + 1;
     while (l < sorted.length && sorted[l].str.trim() === '') l++;
+    console.log(`[findDateGroups]   l=${l}, 词="${sorted[l]?.str || '超出范围'}"`);
     if (l < sorted.length && isSameLine(cur, sorted[l]) && tryPush([cur, sorted[j], sorted[k], sorted[l]])) { i = l + 1; continue; }
 
     let m = l + 1;
     while (m < sorted.length && sorted[m].str.trim() === '') m++;
+    console.log(`[findDateGroups]   m=${m}, 词="${sorted[m]?.str || '超出范围'}"`);
     if (m < sorted.length && isSameLine(cur, sorted[m]) && tryPush([cur, sorted[j], sorted[k], sorted[l], sorted[m]])) { i = m + 1; continue; }
 
     i++;
+  }
+
+  console.log(`[findDateGroups] 最终找到 ${groups.length} 个日期组`);
+  for (const g of groups) {
+    console.log(`  ${g.iso}: x0=${g.x0.toFixed(2)}, x1=${g.x1.toFixed(2)}, yTop=${g.yTop.toFixed(2)}, yBot=${g.yBot.toFixed(2)}`);
   }
 
   return groups;

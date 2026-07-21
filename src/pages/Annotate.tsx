@@ -5,6 +5,7 @@ import { useCertStore } from '@/store/certStore';
 import { renderPageToCanvas, getPdfPageCount } from '@/utils/pdfParser';
 import { annotatePdf, annotateImagePdf } from '@/utils/pdfAnnotator';
 import { CertType, CERT_TYPE_INFO, DATE_TYPE_INFO, RecognizedDate, CertFile } from '@/types';
+import LogPanel from '@/components/LogPanel';
 
 export default function AnnotatePage() {
   const { files, activeFileId, setActiveFile, setCertType, setDate, updateFile } = useCertStore();

@@ -4,7 +4,7 @@ import { Upload, FileText, X, Ship, AlertCircle, CheckCircle2, Loader2, ChevronD
 import { useCertStore } from '@/store/certStore';
 import { processCertFile } from '@/utils/processor';
 import { CertType, CERT_TYPE_INFO, CertFile } from '@/types';
-import { CHANGELOG, BUILD_TIMESTAMP } from '@/config/changelog';
+import { CHANGELOG, getBuildTimestamp } from '@/config/changelog';
 
 export default function UploadPage() {
   const { files, addFile, removeFile, updateFile, setCertType } = useCertStore();
@@ -197,7 +197,7 @@ export default function UploadPage() {
             className="flex items-center gap-2 text-sm text-gray-500 hover:text-[#1B6CA8] transition-colors mx-auto"
           >
             <Clock className="w-4 h-4" />
-            <span>构建时间: {BUILD_TIMESTAMP}</span>
+            <span>构建时间: {getBuildTimestamp()}</span>
             {showChangelog ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
 
