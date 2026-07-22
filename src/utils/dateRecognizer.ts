@@ -37,13 +37,7 @@ function isDateRelevant(str: string): boolean {
   return false;
 }
 
-function skipNonDate(items: Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }>, startIdx: number): number {
-  let i = startIdx;
-  while (i < items.length && !isDateRelevant(items[i].str)) {
-    i++;
-  }
-  return i;
-}
+
 
 export function buildLines(
   items: Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }>
@@ -70,17 +64,6 @@ export function buildLines(
 
   lines.reverse();
 
-  const monthLines = lines.filter(l => l.text.match(/(January|February|March|April|May|June|July|August|September|October|November|December)/i));
-  if (monthLines.length > 0) {
-    logger.info(`[buildLines] 找到 ${monthLines.length} 个包含月份的行:`);
-    for (const line of monthLines) {
-      logger.info(`  行文本: "${line.text}"`);
-      for (const item of line.items) {
-        logger.debug(`    "${item.str}" x0=${item.x0.toFixed(2)}, y=${item.y.toFixed(2)}, height=${item.height.toFixed(2)}`);
-      }
-    }
-  }
-
   const plainText = lines.map((l) => l.text).join('\n');
   return { lines, plainText };
 }
@@ -89,31 +72,9 @@ export function findDateGroups(
   items: Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }>
 ): Omit<DateGroup, 'li' | 'lineY'>[] {
   const groups: Omit<DateGroup, 'li' | 'lineY'>[] = [];
-  // items 已经是同一行内按 x 排序的词，不要再按 y 排序，否则会打乱 x 顺序
   const sorted = [...items].sort((a, b) => a.x0 - b.x0);
-
-  const pushGroup = (
-    arr: Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }>,
-    iso: string
-  ) => {
-    const x0 = Math.min(...arr.map((i) => i.x0));
-    const x1 = Math.max(...arr.map((i) => i.x0 + i.width));
-    const yTop = Math.max(...arr.map((i) => i.y));
-    const yBot = Math.min(...arr.map((i) => i.y - i.height));
-    groups.push({ x0, x1, yTop, yBot, iso });
-  };
-
   const usedIndices = new Set<number>();
 
-  const tryPush = (arr: typeof items): boolean => {
-    const combo = arr.map((i) => normToken(i.str)).join(' ');
-    const iso = toIso(combo);
-    if (!iso) return false;
-    pushGroup(arr, iso);
-    return true;
-  };
-
-  // 滑动窗口：尝试 1-5 个连续词组合成完整日期
   for (let i = 0; i < sorted.length; i++) {
     if (usedIndices.has(i)) continue;
     if (!isDateRelevant(sorted[i].str)) continue;
@@ -126,27 +87,27 @@ export function findDateGroups(
       const combo = window.map((w) => normToken(w.str)).join(' ');
       const iso = toIso(combo);
       if (iso) {
-        pushGroup(window, iso);
+        const x0 = Math.min(...window.map((i) => i.x0));
+        const x1 = Math.max(...window.map((i) => i.x0 + i.width));
+        const yTop = Math.max(...window.map((i) => i.y));
+        const yBot = Math.min(...window.map((i) => i.y - i.height));
+        groups.push({ x0, x1, yTop, yBot, iso });
         for (let idx = 0; idx < len; idx++) usedIndices.add(i + idx);
         break;
       }
     }
   }
 
-  // Fallback for partial dates (e.g. "June 2026") that weren't combined.
   for (let i = 0; i < sorted.length; i++) {
     if (usedIndices.has(i)) continue;
     const iso = toIsoPartial(sorted[i].str);
     if (iso) {
-      pushGroup([sorted[i]], iso);
+      const x0 = sorted[i].x0;
+      const x1 = sorted[i].x0 + sorted[i].width;
+      const yTop = sorted[i].y;
+      const yBot = sorted[i].y - sorted[i].height;
+      groups.push({ x0, x1, yTop, yBot, iso });
       usedIndices.add(i);
-    }
-  }
-
-  if (groups.length > 0) {
-    logger.info(`[findDateGroups] 找到 ${groups.length} 个日期组:`);
-    for (const g of groups) {
-      logger.info(`  ${g.iso} (x=${g.x0.toFixed(1)}-${g.x1.toFixed(1)}, y=${g.yBot.toFixed(1)}-${g.yTop.toFixed(1)})`);
     }
   }
 

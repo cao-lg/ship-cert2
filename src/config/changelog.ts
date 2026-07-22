@@ -21,6 +21,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v3.18.5',
+    date: '2026-07-22 11:55',
+    changes: [
+      '【关键修复】修复日期组合算法中y坐标排序导致x顺序错乱的问题',
+      '重写findDateGroups函数：不再按y排序，改用滑动窗口算法',
+      '清理调试日志和未使用函数',
+    ],
+  },
+  {
     version: 'v3.18.0',
     date: '2026-07-22 10:00',
     changes: [
