@@ -58,10 +58,10 @@ export default function UploadPage() {
         <div className="max-w-5xl mx-auto">
           <div className="flex items-center gap-3 mb-3">
             <Ship className="w-8 h-8" />
-            <h1 className="text-3xl font-bold tracking-tight">Ship Certificate Analyzer</h1>
+            <h1 className="text-3xl font-bold tracking-tight">船舶证书 PDF 标注工具</h1>
           </div>
           <p className="text-blue-200 text-lg">
-            上传船舶证书PDF，自动识别签发日期、过期日期和年检日期，红色框标注并导出汇总
+            纯前端 · 浏览器本地处理 · 文件不上传服务器
           </p>
         </div>
       </div>
@@ -227,6 +227,19 @@ export default function UploadPage() {
           )}
         </div>
       </div>
+
+      {/* 底部版权声明 */}
+      <div className="bg-white border-t border-gray-100 py-6 px-6 mt-8">
+        <div className="max-w-5xl mx-auto text-center">
+          <p className="text-sm text-gray-500 mb-3">
+            本工具所有计算均在你的浏览器本地完成，PDF 与证书信息不会离开本机；扫描件 OCR 亦在本地完成，不上传任何图片。
+          </p>
+          <p className="text-sm text-gray-500">
+            © 2026 广东科学技术职业学院 商学院 数据分析技能大师工作室。本工具当前免费提供使用，可用于个人与企业内部的船舶证书整理；未经授权不得用于商业转售或包装为收费服务。识别结果仅供参考，请以证书原件为准。
+          </p>
+        </div>
+      </div>
+
       <LogPanel />
     </div>
   );
