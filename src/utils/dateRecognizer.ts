@@ -84,22 +84,25 @@ export function findDateGroups(
     if (usedIndices.has(i)) continue;
     if (!isDateRelevant(sorted[i].str)) continue;
 
-    for (let len = 1; len <= 5 && i + len <= sorted.length; len++) {
+    for (let len = 1; len <= 8 && i + len <= sorted.length; len++) {
       const window = sorted.slice(i, i + len);
       if (window.some((w, idx) => idx > 0 && usedIndices.has(i + idx))) break;
       
-      const nonEmpty = window.filter(w => w.str.trim() !== '');
-      if (nonEmpty.some((w) => !isDateRelevant(w.str) && !toIso(w.str))) continue;
+      const dateRelevant = window.filter(w => w.str.trim() !== '' && isDateRelevant(w.str));
+      if (dateRelevant.length === 0) continue;
 
-      const combo = nonEmpty.map((w) => normToken(w.str)).join(' ');
+      const combo = dateRelevant.map((w) => normToken(w.str)).join(' ');
       const iso = toIso(combo);
       if (iso) {
-        const x0 = Math.min(...window.map((i) => i.x0));
-        const x1 = Math.max(...window.map((i) => i.x0 + i.width));
-        const yTop = Math.max(...window.map((i) => i.y));
-        const yBot = Math.min(...window.map((i) => i.y - i.height));
+        const relevantIndices = window
+          .map((w, idx) => ({ w, idx }))
+          .filter(({ w }) => w.str.trim() !== '' && isDateRelevant(w.str));
+        const x0 = Math.min(...relevantIndices.map(({ w }) => w.x0));
+        const x1 = Math.max(...relevantIndices.map(({ w }) => w.x0 + w.width));
+        const yTop = Math.max(...relevantIndices.map(({ w }) => w.y));
+        const yBot = Math.min(...relevantIndices.map(({ w }) => w.y - w.height));
         groups.push({ x0, x1, yTop, yBot, iso });
-        for (let idx = 0; idx < len; idx++) usedIndices.add(i + idx);
+        for (const { idx } of relevantIndices) usedIndices.add(i + idx);
         break;
       }
     }
