@@ -87,9 +87,11 @@ export function findDateGroups(
     for (let len = 1; len <= 5 && i + len <= sorted.length; len++) {
       const window = sorted.slice(i, i + len);
       if (window.some((w, idx) => idx > 0 && usedIndices.has(i + idx))) break;
-      if (window.some((w) => !isDateRelevant(w.str) && !toIso(w.str))) continue;
+      
+      const nonEmpty = window.filter(w => w.str.trim() !== '');
+      if (nonEmpty.some((w) => !isDateRelevant(w.str) && !toIso(w.str))) continue;
 
-      const combo = window.map((w) => normToken(w.str)).join(' ');
+      const combo = nonEmpty.map((w) => normToken(w.str)).join(' ');
       const iso = toIso(combo);
       if (iso) {
         const x0 = Math.min(...window.map((i) => i.x0));
