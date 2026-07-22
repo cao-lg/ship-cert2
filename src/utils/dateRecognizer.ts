@@ -93,6 +93,9 @@ export function findDateGroups(
 
       const combo = dateRelevant.map((w) => normToken(w.str)).join(' ');
       const iso = toIso(combo);
+      if (dateRelevant.some(w => w.str.match(/(May)/i))) {
+        logger.debug(`[findDateGroups] combo="${combo}", toIso="${iso}"`);
+      }
       if (iso) {
         const relevantIndices = window
           .map((w, idx) => ({ w, idx }))
