@@ -82,6 +82,11 @@ export function findDateGroups(
 
   for (let i = 0; i < sorted.length; i++) {
     if (usedIndices.has(i)) continue;
+    
+    if (sorted.some(w => w.str.match(/(May)/i))) {
+      logger.debug(`[findDateGroups] i=${i}, str="${sorted[i].str}", isDateRelevant=${isDateRelevant(sorted[i].str)}`);
+    }
+    
     if (!isDateRelevant(sorted[i].str)) continue;
 
     for (let len = 1; len <= 8 && i + len <= sorted.length; len++) {
@@ -93,9 +98,11 @@ export function findDateGroups(
 
       const combo = dateRelevant.map((w) => normToken(w.str)).join(' ');
       const iso = toIso(combo);
+      
       if (dateRelevant.some(w => w.str.match(/(May)/i))) {
-        logger.debug(`[findDateGroups] combo="${combo}", toIso="${iso}"`);
+        logger.debug(`[findDateGroups] i=${i}, len=${len}, combo="${combo}", toIso="${iso}"`);
       }
+      
       if (iso) {
         const relevantIndices = window
           .map((w, idx) => ({ w, idx }))
