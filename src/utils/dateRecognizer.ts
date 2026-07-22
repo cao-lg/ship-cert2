@@ -164,6 +164,13 @@ export function findDateGroups(
     }
   }
 
+  if (groups.length > 0) {
+    logger.info(`[findDateGroups] 找到 ${groups.length} 个日期组:`);
+    for (const g of groups) {
+      logger.info(`  ${g.iso} (x=${g.x0.toFixed(1)}-${g.x1.toFixed(1)}, y=${g.yBot.toFixed(1)}-${g.yTop.toFixed(1)})`);
+    }
+  }
+
   return groups;
 }
 
