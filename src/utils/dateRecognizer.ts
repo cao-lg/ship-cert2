@@ -29,8 +29,9 @@ export interface LineItem {
 function isDateRelevant(str: string): boolean {
   const s = str.trim();
   if (!s) return false;
-  if (s.match(/^\d{4}$/)) return true;
-  if (s.match(/^\d{1,2}$/)) return true;
+  const clean = s.replace(/[.,;:)\]]+$/, '');
+  if (clean.match(/^\d{4}$/)) return true;
+  if (clean.match(/^\d{1,2}$/)) return true;
   if (s.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)$/i)) return true;
   if (s.match(/^(Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/i)) return true;
   if (toIsoPartial(s)) return true;
