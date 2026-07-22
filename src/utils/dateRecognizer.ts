@@ -89,7 +89,8 @@ export function findDateGroups(
   items: Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }>
 ): Omit<DateGroup, 'li' | 'lineY'>[] {
   const groups: Omit<DateGroup, 'li' | 'lineY'>[] = [];
-  const sorted = [...items].sort((a, b) => a.y - b.y || a.x0 - b.x0);
+  // items 已经是同一行内按 x 排序的词，不要再按 y 排序，否则会打乱 x 顺序
+  const sorted = [...items].sort((a, b) => a.x0 - b.x0);
 
   const pushGroup = (
     arr: Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }>,
@@ -104,26 +105,6 @@ export function findDateGroups(
 
   const usedIndices = new Set<number>();
 
-  // Phase 1: Match standalone complete dates (e.g. "13 January 2026", "2026-01-13").
-  // toIso no longer matches "Month Year", so partial dates are naturally skipped.
-  for (let i = 0; i < sorted.length; i++) {
-    const iso = toIso(sorted[i].str);
-    if (iso) {
-      pushGroup([sorted[i]], iso);
-      usedIndices.add(i);
-    }
-  }
-
-  const isSameLine = (a: typeof items[0], b: typeof items[0]): boolean => {
-    const maxY = Math.max(a.y, b.y);
-    const minY = Math.min(a.y - a.height, b.y - b.height);
-    const same = maxY - minY < 30;
-    if (!same) {
-      logger.debug(`[isSameLine] 不同行: "${a.str}" y=${a.y.toFixed(1)} vs "${b.str}" y=${b.y.toFixed(1)}`);
-    }
-    return same;
-  };
-
   const tryPush = (arr: typeof items): boolean => {
     const combo = arr.map((i) => normToken(i.str)).join(' ');
     const iso = toIso(combo);
@@ -132,39 +113,27 @@ export function findDateGroups(
     return true;
   };
 
-  // Phase 2: Combine adjacent tokens into complete dates.
-  // "02" + "June 2026" → toIso("02 June 2026") → "2026-06-02"
-  // A standalone "June 2026" won't match here because toIso rejects it.
-  let i = 0;
-  while (i < sorted.length) {
-    if (usedIndices.has(i)) { i++; continue; }
-    const cur = sorted[i];
-    if (!isDateRelevant(cur.str)) { i++; continue; }
+  // 滑动窗口：尝试 1-5 个连续词组合成完整日期
+  for (let i = 0; i < sorted.length; i++) {
+    if (usedIndices.has(i)) continue;
+    if (!isDateRelevant(sorted[i].str)) continue;
 
-    logger.debug(`[findDateGroups] Phase2 i=${i}, cur="${cur.str}"`);
+    for (let len = 1; len <= 5 && i + len <= sorted.length; len++) {
+      const window = sorted.slice(i, i + len);
+      if (window.some((w, idx) => idx > 0 && usedIndices.has(i + idx))) break;
+      if (window.some((w) => !isDateRelevant(w.str) && !toIso(w.str))) continue;
 
-    if (tryPush([cur])) { usedIndices.add(i); i++; continue; }
-
-    let j = skipNonDate(sorted, i + 1);
-    logger.debug(`[findDateGroups] j=${j}, item="${j < sorted.length ? sorted[j].str : 'N/A'}"`);
-    if (j < sorted.length && !usedIndices.has(j) && isSameLine(cur, sorted[j]) && tryPush([cur, sorted[j]])) { usedIndices.add(i); usedIndices.add(j); i = j + 1; continue; }
-
-    let k = j < sorted.length ? skipNonDate(sorted, j + 1) : sorted.length;
-    logger.debug(`[findDateGroups] k=${k}, item="${k < sorted.length ? sorted[k].str : 'N/A'}"`);
-    if (k < sorted.length && !usedIndices.has(k) && isSameLine(cur, sorted[k]) && tryPush([cur, sorted[j], sorted[k]])) { usedIndices.add(i); usedIndices.add(j); usedIndices.add(k); i = k + 1; continue; }
-
-    let l = k < sorted.length ? skipNonDate(sorted, k + 1) : sorted.length;
-    logger.debug(`[findDateGroups] l=${l}, item="${l < sorted.length ? sorted[l].str : 'N/A'}"`);
-    if (l < sorted.length && !usedIndices.has(l) && isSameLine(cur, sorted[l]) && tryPush([cur, sorted[j], sorted[k], sorted[l]])) { usedIndices.add(i); usedIndices.add(j); usedIndices.add(k); usedIndices.add(l); i = l + 1; continue; }
-
-    let m = l < sorted.length ? skipNonDate(sorted, l + 1) : sorted.length;
-    logger.debug(`[findDateGroups] m=${m}, item="${m < sorted.length ? sorted[m].str : 'N/A'}"`);
-    if (m < sorted.length && !usedIndices.has(m) && isSameLine(cur, sorted[m]) && tryPush([cur, sorted[j], sorted[k], sorted[l], sorted[m]])) { usedIndices.add(i); usedIndices.add(j); usedIndices.add(k); usedIndices.add(l); usedIndices.add(m); i = m + 1; continue; }
-
-    i++;
+      const combo = window.map((w) => normToken(w.str)).join(' ');
+      const iso = toIso(combo);
+      if (iso) {
+        pushGroup(window, iso);
+        for (let idx = 0; idx < len; idx++) usedIndices.add(i + idx);
+        break;
+      }
+    }
   }
 
-  // Phase 3: Fallback for partial dates (e.g. "June 2026") that weren't combined.
+  // Fallback for partial dates (e.g. "June 2026") that weren't combined.
   for (let i = 0; i < sorted.length; i++) {
     if (usedIndices.has(i)) continue;
     const iso = toIsoPartial(sorted[i].str);
