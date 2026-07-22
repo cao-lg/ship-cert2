@@ -117,7 +117,11 @@ export function findDateGroups(
   const isSameLine = (a: typeof items[0], b: typeof items[0]): boolean => {
     const maxY = Math.max(a.y, b.y);
     const minY = Math.min(a.y - a.height, b.y - b.height);
-    return maxY - minY < 20;
+    const same = maxY - minY < 30;
+    if (!same) {
+      logger.debug(`[isSameLine] 不同行: "${a.str}" y=${a.y.toFixed(1)} vs "${b.str}" y=${b.y.toFixed(1)}`);
+    }
+    return same;
   };
 
   const tryPush = (arr: typeof items): boolean => {
@@ -137,18 +141,24 @@ export function findDateGroups(
     const cur = sorted[i];
     if (!isDateRelevant(cur.str)) { i++; continue; }
 
+    logger.debug(`[findDateGroups] Phase2 i=${i}, cur="${cur.str}"`);
+
     if (tryPush([cur])) { usedIndices.add(i); i++; continue; }
 
     let j = skipNonDate(sorted, i + 1);
+    logger.debug(`[findDateGroups] j=${j}, item="${j < sorted.length ? sorted[j].str : 'N/A'}"`);
     if (j < sorted.length && !usedIndices.has(j) && isSameLine(cur, sorted[j]) && tryPush([cur, sorted[j]])) { usedIndices.add(i); usedIndices.add(j); i = j + 1; continue; }
 
     let k = j < sorted.length ? skipNonDate(sorted, j + 1) : sorted.length;
+    logger.debug(`[findDateGroups] k=${k}, item="${k < sorted.length ? sorted[k].str : 'N/A'}"`);
     if (k < sorted.length && !usedIndices.has(k) && isSameLine(cur, sorted[k]) && tryPush([cur, sorted[j], sorted[k]])) { usedIndices.add(i); usedIndices.add(j); usedIndices.add(k); i = k + 1; continue; }
 
     let l = k < sorted.length ? skipNonDate(sorted, k + 1) : sorted.length;
+    logger.debug(`[findDateGroups] l=${l}, item="${l < sorted.length ? sorted[l].str : 'N/A'}"`);
     if (l < sorted.length && !usedIndices.has(l) && isSameLine(cur, sorted[l]) && tryPush([cur, sorted[j], sorted[k], sorted[l]])) { usedIndices.add(i); usedIndices.add(j); usedIndices.add(k); usedIndices.add(l); i = l + 1; continue; }
 
     let m = l < sorted.length ? skipNonDate(sorted, l + 1) : sorted.length;
+    logger.debug(`[findDateGroups] m=${m}, item="${m < sorted.length ? sorted[m].str : 'N/A'}"`);
     if (m < sorted.length && !usedIndices.has(m) && isSameLine(cur, sorted[m]) && tryPush([cur, sorted[j], sorted[k], sorted[l], sorted[m]])) { usedIndices.add(i); usedIndices.add(j); usedIndices.add(k); usedIndices.add(l); usedIndices.add(m); i = m + 1; continue; }
 
     i++;
