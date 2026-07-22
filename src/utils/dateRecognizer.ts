@@ -78,6 +78,28 @@ export function findDateGroups(
   const groups: Omit<DateGroup, 'li' | 'lineY'>[] = [];
   const sorted = [...items].sort((a, b) => a.y - b.y || a.x0 - b.x0);
 
+  const pushGroup = (
+    arr: Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }>,
+    iso: string
+  ) => {
+    const x0 = Math.min(...arr.map((i) => i.x0));
+    const x1 = Math.max(...arr.map((i) => i.x0 + i.width));
+    const yTop = Math.max(...arr.map((i) => i.y));
+    const yBot = Math.min(...arr.map((i) => i.y - i.height));
+    groups.push({ x0, x1, yTop, yBot, iso });
+  };
+
+  const usedIndices = new Set<number>();
+
+  for (let i = 0; i < sorted.length; i++) {
+    const item = sorted[i];
+    const iso = toIso(item.str);
+    if (iso) {
+      pushGroup([item], iso);
+      usedIndices.add(i);
+    }
+  }
+
   const isSameLine = (a: typeof items[0], b: typeof items[0]): boolean => {
     const maxY = Math.max(a.y, b.y);
     const minY = Math.min(a.y - a.height, b.y - b.height);
@@ -90,18 +112,16 @@ export function findDateGroups(
     if (!iso) {
       return false;
     }
-
-    const x0 = Math.min(...arr.map((i) => i.x0));
-    const x1 = Math.max(...arr.map((i) => i.x0 + i.width));
-    const yTop = Math.max(...arr.map((i) => i.y));
-    const yBot = Math.min(...arr.map((i) => i.y - i.height));
-
-    groups.push({ x0, x1, yTop, yBot, iso });
+    pushGroup(arr, iso);
     return true;
   };
 
   let i = 0;
   while (i < sorted.length) {
+    if (usedIndices.has(i)) {
+      i++;
+      continue;
+    }
     const cur = sorted[i];
     if (!isDateRelevant(cur.str)) {
       i++;
@@ -111,16 +131,16 @@ export function findDateGroups(
     if (tryPush([cur])) { i++; continue; }
 
     let j = skipNonDate(sorted, i + 1);
-    if (j < sorted.length && isSameLine(cur, sorted[j]) && tryPush([cur, sorted[j]])) { i = j + 1; continue; }
+    if (j < sorted.length && !usedIndices.has(j) && isSameLine(cur, sorted[j]) && tryPush([cur, sorted[j]])) { i = j + 1; continue; }
 
     let k = j < sorted.length ? skipNonDate(sorted, j + 1) : sorted.length;
-    if (k < sorted.length && isSameLine(cur, sorted[k]) && tryPush([cur, sorted[j], sorted[k]])) { i = k + 1; continue; }
+    if (k < sorted.length && !usedIndices.has(k) && isSameLine(cur, sorted[k]) && tryPush([cur, sorted[j], sorted[k]])) { i = k + 1; continue; }
 
     let l = k < sorted.length ? skipNonDate(sorted, k + 1) : sorted.length;
-    if (l < sorted.length && isSameLine(cur, sorted[l]) && tryPush([cur, sorted[j], sorted[k], sorted[l]])) { i = l + 1; continue; }
+    if (l < sorted.length && !usedIndices.has(l) && isSameLine(cur, sorted[l]) && tryPush([cur, sorted[j], sorted[k], sorted[l]])) { i = l + 1; continue; }
 
     let m = l < sorted.length ? skipNonDate(sorted, l + 1) : sorted.length;
-    if (m < sorted.length && isSameLine(cur, sorted[m]) && tryPush([cur, sorted[j], sorted[k], sorted[l], sorted[m]])) { i = m + 1; continue; }
+    if (m < sorted.length && !usedIndices.has(m) && isSameLine(cur, sorted[m]) && tryPush([cur, sorted[j], sorted[k], sorted[l], sorted[m]])) { i = m + 1; continue; }
 
     i++;
   }
