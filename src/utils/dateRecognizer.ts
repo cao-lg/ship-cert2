@@ -76,6 +76,10 @@ export function findDateGroups(
   const sorted = [...items].sort((a, b) => a.x0 - b.x0);
   const usedIndices = new Set<number>();
 
+  if (sorted.some(i => i.str.match(/(June|December|May)/i))) {
+    logger.info(`[findDateGroups] 输入items: ${sorted.map(i => `"${i.str}"`).join(', ')}`);
+  }
+
   for (let i = 0; i < sorted.length; i++) {
     if (usedIndices.has(i)) continue;
     if (!isDateRelevant(sorted[i].str)) continue;
