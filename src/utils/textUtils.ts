@@ -25,7 +25,7 @@ export function normalizeDateString(s: string): string {
 }
 
 export function normSp(s: string): string {
-  return cleanInvisible(String(s).normalize('NFKC')).toLowerCase().replace(/\s+/g, '');
+  return cleanInvisible(String(s).normalize('NFKC')).toLowerCase().replace(/[\s.:,;!?'"]+/g, '');
 }
 
 export function normToken(tok: string): string {

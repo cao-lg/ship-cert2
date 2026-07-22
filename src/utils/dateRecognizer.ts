@@ -178,6 +178,21 @@ function nearestDate(
   return best;
 }
 
+function keywordMatches(kwNorm: string, textNorm: string): boolean {
+  if (kwNorm.includes('*')) {
+    const parts = kwNorm.split('*');
+    let pos = 0;
+    for (const part of parts) {
+      if (!part) continue;
+      const idx = textNorm.indexOf(part, pos);
+      if (idx < 0) return false;
+      pos = idx + part.length;
+    }
+    return true;
+  }
+  return textNorm.includes(kwNorm);
+}
+
 function textItemsToUnified(
   textItems: TextItem[]
 ): Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }> {
@@ -278,7 +293,7 @@ export function recognizeDatesFromUnified(
           const kwNorm = normSp(keyword);
           if (!kwNorm) continue;
 
-          if (currentLineNorm.includes(kwNorm)) {
+          if (keywordMatches(kwNorm, currentLineNorm)) {
             let score = 50 + Math.min(kwNorm.length / 10, 3);
             if (expiryHighPriorityKeywords.includes(keyword)) score += 10;
             
@@ -304,7 +319,7 @@ export function recognizeDatesFromUnified(
               if (li === dg.li) continue;
               const line = lines[li];
               const n = normSp(line.text);
-              if (!n.includes(kwNorm)) continue;
+              if (!keywordMatches(kwNorm, n)) continue;
 
               const dist = Math.abs(li - dg.li);
               const kwWeight = Math.min(kwNorm.length / 10, 3);

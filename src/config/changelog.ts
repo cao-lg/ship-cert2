@@ -21,6 +21,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: 'v3.18.0',
+    date: '2026-07-22 10:00',
+    changes: [
+      '【关键修复】修复"is valid until"和"Issued at ... on"日期类型识别失败问题',
+      '优化normSp函数：移除标点符号（.:,;!?'），避免标点影响匹配',
+      '新增keywordMatches函数：支持通配符*匹配（如"Issued * on"匹配"Issued at Mokpo on"）',
+      '更新关键词："Issued ... on"改为"Issued * on"，"Issued at ... on"改为"Issued at * on"',
+      '新增关键词："certificate is valid until"',
+    ],
+  },
+  {
     version: 'v3.17.0',
     date: '2026-07-22 09:30',
     changes: [
