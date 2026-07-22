@@ -52,7 +52,7 @@ export function buildLines(
   let curY: number | null = null;
 
   for (const it of sorted) {
-    if (cur === null || Math.abs(it.y - curY!) > 4) {
+    if (cur === null || Math.abs(it.y - curY!) > 10) {
       cur = [];
       curY = it.y;
       lines.push({ items: cur, text: '', x0: 0 });
