@@ -6,6 +6,7 @@ import {
   normSp,
   cleanInvisible,
   prepDateText,
+  isMonthYearOnly,
 } from './textUtils';
 import { logger } from './logger';
 
@@ -32,6 +33,7 @@ function isDateRelevant(str: string): boolean {
   if (s.match(/^\d{1,2}$/)) return true;
   if (s.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)$/i)) return true;
   if (s.match(/^(Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/i)) return true;
+  if (isMonthYearOnly(s)) return true;
   return false;
 }
 
@@ -91,10 +93,12 @@ export function findDateGroups(
 
   const usedIndices = new Set<number>();
 
+  // Phase 1: Match complete dates (with day) only.
+  // Skip "Month Year" items so they can combine with a preceding day number in Phase 2.
   for (let i = 0; i < sorted.length; i++) {
     const item = sorted[i];
     const iso = toIso(item.str);
-    if (iso) {
+    if (iso && !isMonthYearOnly(item.str)) {
       pushGroup([item], iso);
       usedIndices.add(i);
     }
@@ -116,6 +120,9 @@ export function findDateGroups(
     return true;
   };
 
+  // Phase 2: Combine adjacent items (day + month + year, or day + "Month Year")
+  // "Month Year" items are NOT used as starting points — they can only be
+  // combined with a preceding day number here, or matched standalone in Phase 3.
   let i = 0;
   while (i < sorted.length) {
     if (usedIndices.has(i)) {
@@ -123,26 +130,39 @@ export function findDateGroups(
       continue;
     }
     const cur = sorted[i];
-    if (!isDateRelevant(cur.str)) {
+    if (!isDateRelevant(cur.str) || isMonthYearOnly(cur.str)) {
       i++;
       continue;
     }
 
-    if (tryPush([cur])) { i++; continue; }
+    if (tryPush([cur])) { usedIndices.add(i); i++; continue; }
 
     let j = skipNonDate(sorted, i + 1);
-    if (j < sorted.length && !usedIndices.has(j) && isSameLine(cur, sorted[j]) && tryPush([cur, sorted[j]])) { i = j + 1; continue; }
+    if (j < sorted.length && !usedIndices.has(j) && isSameLine(cur, sorted[j]) && tryPush([cur, sorted[j]])) { usedIndices.add(i); usedIndices.add(j); i = j + 1; continue; }
 
     let k = j < sorted.length ? skipNonDate(sorted, j + 1) : sorted.length;
-    if (k < sorted.length && !usedIndices.has(k) && isSameLine(cur, sorted[k]) && tryPush([cur, sorted[j], sorted[k]])) { i = k + 1; continue; }
+    if (k < sorted.length && !usedIndices.has(k) && isSameLine(cur, sorted[k]) && tryPush([cur, sorted[j], sorted[k]])) { usedIndices.add(i); usedIndices.add(j); usedIndices.add(k); i = k + 1; continue; }
 
     let l = k < sorted.length ? skipNonDate(sorted, k + 1) : sorted.length;
-    if (l < sorted.length && !usedIndices.has(l) && isSameLine(cur, sorted[l]) && tryPush([cur, sorted[j], sorted[k], sorted[l]])) { i = l + 1; continue; }
+    if (l < sorted.length && !usedIndices.has(l) && isSameLine(cur, sorted[l]) && tryPush([cur, sorted[j], sorted[k], sorted[l]])) { usedIndices.add(i); usedIndices.add(j); usedIndices.add(k); usedIndices.add(l); i = l + 1; continue; }
 
     let m = l < sorted.length ? skipNonDate(sorted, l + 1) : sorted.length;
-    if (m < sorted.length && !usedIndices.has(m) && isSameLine(cur, sorted[m]) && tryPush([cur, sorted[j], sorted[k], sorted[l], sorted[m]])) { i = m + 1; continue; }
+    if (m < sorted.length && !usedIndices.has(m) && isSameLine(cur, sorted[m]) && tryPush([cur, sorted[j], sorted[k], sorted[l], sorted[m]])) { usedIndices.add(i); usedIndices.add(j); usedIndices.add(k); usedIndices.add(l); usedIndices.add(m); i = m + 1; continue; }
 
     i++;
+  }
+
+  // Phase 3: Match remaining "Month Year" items that weren't combined in Phase 2
+  for (let i = 0; i < sorted.length; i++) {
+    if (usedIndices.has(i)) continue;
+    const item = sorted[i];
+    if (isMonthYearOnly(item.str)) {
+      const iso = toIso(item.str);
+      if (iso) {
+        pushGroup([item], iso);
+        usedIndices.add(i);
+      }
+    }
   }
 
   return groups;

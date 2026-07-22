@@ -21,14 +21,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: 'v3.15.0',
-    date: '2026-07-22 08:30',
+    version: 'v3.16.0',
+    date: '2026-07-22 09:00',
     changes: [
-      '【关键修复】修复文本型PDF日期识别：支持整个日期在一个文本项中的情况（如"18 September 2026"）',
-      '【关键修复】修复文本型PDF日期识别：先尝试文本识别，识别不到再用OCR',
-      '【优化】调大行判断阈值（从4到10），改善文本型PDF的行分组准确性',
-      '【功能】在Upload和Annotate页面底部添加调试日志面板',
-      '【修复】构建时间改为动态获取北京时间',
+      '【关键修复】修复"Month Year"格式（如"June 2026"）阻止日期组合的问题',
+      '【关键修复】三阶段日期识别：先完整日期→再组合→最后单独Month Year',
+      '【修复】isDateRelevant识别"Month Year"格式，避免skipNonDate跳过',
+      '【优化】Phase 2组合时标记已用索引，防止Phase 3重复匹配',
     ],
   },
   {

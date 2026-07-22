@@ -64,7 +64,7 @@ export function monthNum(s: string): number | null {
 
 const MONTH_NAME_ALT = Object.keys(MONTHS).join('|');
 const MONTH_ABBR_ALT = Object.keys(MONTH_ABBR).join('|');
-const MONTH_ALT = `${MONTH_NAME_ALT}|${MONTH_ABBR_ALT}`;
+export const MONTH_ALT = `${MONTH_NAME_ALT}|${MONTH_ABBR_ALT}`;
 
 export function toIso(text: string): string | null {
   text = normalizeDateString(text).trim();
@@ -103,6 +103,11 @@ export function toIso(text: string): string | null {
   if (m) return `${m[3]}-${String(parseInt(m[2], 10)).padStart(2, '0')}-${String(parseInt(m[1], 10)).padStart(2, '0')}`;
 
   return null;
+}
+
+export function isMonthYearOnly(s: string): boolean {
+  const t = normalizeDateString(s).trim();
+  return !!t.match(new RegExp(`^(${MONTH_ALT})\\s+\\d{4}$`, 'i'));
 }
 
 export const DATEPAT =
