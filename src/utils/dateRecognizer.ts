@@ -70,6 +70,17 @@ export function buildLines(
 
   lines.reverse();
 
+  const monthLines = lines.filter(l => l.text.match(/(January|February|March|April|May|June|July|August|September|October|November|December)/i));
+  if (monthLines.length > 0) {
+    logger.info(`[buildLines] 找到 ${monthLines.length} 个包含月份的行:`);
+    for (const line of monthLines) {
+      logger.info(`  行文本: "${line.text}"`);
+      for (const item of line.items) {
+        logger.debug(`    "${item.str}" x0=${item.x0.toFixed(2)}, y=${item.y.toFixed(2)}, height=${item.height.toFixed(2)}`);
+      }
+    }
+  }
+
   const plainText = lines.map((l) => l.text).join('\n');
   return { lines, plainText };
 }
