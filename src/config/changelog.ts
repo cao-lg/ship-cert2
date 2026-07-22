@@ -21,13 +21,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: 'v3.16.0',
-    date: '2026-07-22 09:00',
+    version: 'v3.17.0',
+    date: '2026-07-22 09:30',
     changes: [
-      '【关键修复】修复"Month Year"格式（如"June 2026"）阻止日期组合的问题',
-      '【关键修复】三阶段日期识别：先完整日期→再组合→最后单独Month Year',
-      '【修复】isDateRelevant识别"Month Year"格式，避免skipNonDate跳过',
-      '【优化】Phase 2组合时标记已用索引，防止Phase 3重复匹配',
+      '【重构】将toIso拆分为toIso(完整日期)和toIsoPartial(不完整日期)，从根源解决Month Year被误判为完整日期的问题',
+      '【重构】移除isMonthYearOnly函数，findDateGroups三阶段逻辑更简洁',
+      '【优化】toIso不再硬编码填充day=01，Month Year仅在Phase 3 fallback中处理',
     ],
   },
   {

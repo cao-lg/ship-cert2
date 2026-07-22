@@ -81,9 +81,6 @@ export function toIso(text: string): string | null {
   m = text.match(new RegExp(`^(${MONTH_ALT})\\s+(\\d{1,2})\\s+(\\d{4})$`, 'i'));
   if (m) return `${m[3]}-${String(monthNum(m[1])!).padStart(2, '0')}-${String(parseInt(m[2], 10)).padStart(2, '0')}`;
 
-  m = text.match(new RegExp(`^(${MONTH_ALT})\\s+(\\d{4})$`, 'i'));
-  if (m) return `${m[2]}-${String(monthNum(m[1])!).padStart(2, '0')}-01`;
-
   m = text.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日$/);
   if (m) return `${m[1]}-${String(parseInt(m[2], 10)).padStart(2, '0')}-${String(parseInt(m[3], 10)).padStart(2, '0')}`;
 
@@ -105,9 +102,18 @@ export function toIso(text: string): string | null {
   return null;
 }
 
-export function isMonthYearOnly(s: string): boolean {
-  const t = normalizeDateString(s).trim();
-  return !!t.match(new RegExp(`^(${MONTH_ALT})\\s+\\d{4}$`, 'i'));
+/**
+ * Parse partial dates that lack a day component (e.g. "June 2026" → "2026-06-01").
+ * Kept separate from toIso so that complete-date matching never accidentally
+ * treats a "Month Year" string as a full date with day=01.
+ */
+export function toIsoPartial(text: string): string | null {
+  text = normalizeDateString(text).trim();
+
+  let m = text.match(new RegExp(`^(${MONTH_ALT})\\s+(\\d{4})$`, 'i'));
+  if (m) return `${m[2]}-${String(monthNum(m[1])!).padStart(2, '0')}-01`;
+
+  return null;
 }
 
 export const DATEPAT =

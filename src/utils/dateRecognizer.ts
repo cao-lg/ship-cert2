@@ -3,10 +3,10 @@ import { OcrResult, OcrWord } from './ocr';
 import {
   normToken,
   toIso,
+  toIsoPartial,
   normSp,
   cleanInvisible,
   prepDateText,
-  isMonthYearOnly,
 } from './textUtils';
 import { logger } from './logger';
 
@@ -33,7 +33,7 @@ function isDateRelevant(str: string): boolean {
   if (s.match(/^\d{1,2}$/)) return true;
   if (s.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)$/i)) return true;
   if (s.match(/^(Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/i)) return true;
-  if (isMonthYearOnly(s)) return true;
+  if (toIsoPartial(s)) return true;
   return false;
 }
 
@@ -93,13 +93,12 @@ export function findDateGroups(
 
   const usedIndices = new Set<number>();
 
-  // Phase 1: Match complete dates (with day) only.
-  // Skip "Month Year" items so they can combine with a preceding day number in Phase 2.
+  // Phase 1: Match standalone complete dates (e.g. "13 January 2026", "2026-01-13").
+  // toIso no longer matches "Month Year", so partial dates are naturally skipped.
   for (let i = 0; i < sorted.length; i++) {
-    const item = sorted[i];
-    const iso = toIso(item.str);
-    if (iso && !isMonthYearOnly(item.str)) {
-      pushGroup([item], iso);
+    const iso = toIso(sorted[i].str);
+    if (iso) {
+      pushGroup([sorted[i]], iso);
       usedIndices.add(i);
     }
   }
@@ -113,27 +112,19 @@ export function findDateGroups(
   const tryPush = (arr: typeof items): boolean => {
     const combo = arr.map((i) => normToken(i.str)).join(' ');
     const iso = toIso(combo);
-    if (!iso) {
-      return false;
-    }
+    if (!iso) return false;
     pushGroup(arr, iso);
     return true;
   };
 
-  // Phase 2: Combine adjacent items (day + month + year, or day + "Month Year")
-  // "Month Year" items are NOT used as starting points — they can only be
-  // combined with a preceding day number here, or matched standalone in Phase 3.
+  // Phase 2: Combine adjacent tokens into complete dates.
+  // "02" + "June 2026" → toIso("02 June 2026") → "2026-06-02"
+  // A standalone "June 2026" won't match here because toIso rejects it.
   let i = 0;
   while (i < sorted.length) {
-    if (usedIndices.has(i)) {
-      i++;
-      continue;
-    }
+    if (usedIndices.has(i)) { i++; continue; }
     const cur = sorted[i];
-    if (!isDateRelevant(cur.str) || isMonthYearOnly(cur.str)) {
-      i++;
-      continue;
-    }
+    if (!isDateRelevant(cur.str)) { i++; continue; }
 
     if (tryPush([cur])) { usedIndices.add(i); i++; continue; }
 
@@ -152,16 +143,13 @@ export function findDateGroups(
     i++;
   }
 
-  // Phase 3: Match remaining "Month Year" items that weren't combined in Phase 2
+  // Phase 3: Fallback for partial dates (e.g. "June 2026") that weren't combined.
   for (let i = 0; i < sorted.length; i++) {
     if (usedIndices.has(i)) continue;
-    const item = sorted[i];
-    if (isMonthYearOnly(item.str)) {
-      const iso = toIso(item.str);
-      if (iso) {
-        pushGroup([item], iso);
-        usedIndices.add(i);
-      }
+    const iso = toIsoPartial(sorted[i].str);
+    if (iso) {
+      pushGroup([sorted[i]], iso);
+      usedIndices.add(i);
     }
   }
 
