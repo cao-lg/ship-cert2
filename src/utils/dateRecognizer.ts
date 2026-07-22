@@ -224,7 +224,7 @@ function ocrWordsToUnified(
   words: OcrWord[],
   page: number
 ): Array<{ str: string; x0: number; y: number; width: number; height: number; page: number }> {
-  return words.map((w) => ({
+  const unified = words.map((w) => ({
     str: cleanInvisible(w.text),
     x0: w.bbox.x0,
     y: w.bbox.y1,
@@ -232,6 +232,20 @@ function ocrWordsToUnified(
     height: w.bbox.y1 - w.bbox.y0,
     page,
   }));
+
+  const dateItems = unified.filter(i => i.str.match(/^\d{4}$/) || 
+    i.str.match(/^\d{1,2}$/) || 
+    i.str.match(/^(January|February|March|April|May|June|July|August|September|October|November|December)$/i) ||
+    i.str.match(/^(Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)$/i));
+  
+  if (dateItems.length > 0) {
+    logger.info(`[ocrWordsToUnified] 第${page}页找到 ${dateItems.length} 个日期相关词`);
+    for (const item of dateItems) {
+      logger.debug(`  "${item.str}" x0=${item.x0.toFixed(2)}, y=${item.y.toFixed(2)}, height=${item.height.toFixed(2)}`);
+    }
+  }
+
+  return unified;
 }
 
 export function recognizeDatesFromUnified(
